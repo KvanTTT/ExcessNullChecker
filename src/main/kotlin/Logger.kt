@@ -1,3 +1,3 @@
 interface Logger {
-    fun log(diagnostics: Message)
+    fun log(message: Message)
 }

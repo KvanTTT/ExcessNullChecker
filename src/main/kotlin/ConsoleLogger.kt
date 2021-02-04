@@ -1,5 +1,5 @@
 class ConsoleLogger : Logger {
-    override fun log(diagnostics: Message) {
-        println(diagnostics)
+    override fun log(message: Message) {
+        println(message)
     }
 }

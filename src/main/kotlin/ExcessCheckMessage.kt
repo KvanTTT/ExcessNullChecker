@@ -2,7 +2,7 @@ class ExcessCheckMessage(p: Boolean, l: Int) : Message(l) {
     val param: Boolean = p
 
     override fun toString(): String {
-        return "Expression is always $param at $line"
+        return "Condition is always $param at $line"
     }
 
     override fun equals(other: Any?): Boolean {

@@ -1,3 +1,2 @@
-abstract class Message(l: Int) {
-    val line: Int = l
+abstract class Message(val line: Int) {
 }

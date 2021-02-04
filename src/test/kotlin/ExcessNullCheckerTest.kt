@@ -52,14 +52,14 @@ class ExcessNullCheckerTest {
     }
 
     fun testFile(fileName: String) {
-        var fullJavaFilePath = Paths.get("src", "test", "resources", "$fileName.java").toString()
-        var file = File(fullJavaFilePath)
-        var expectedMessages = mutableListOf<Message>()
+        val fullJavaFilePath = Paths.get("src", "test", "resources", "$fileName.java").toString()
+        val file = File(fullJavaFilePath)
+        val expectedMessages = mutableListOf<Message>()
         var currentLine = 1
         file.forEachLine { line ->
-            var matchResult = testMarkerRegex.find(line)
+            val matchResult = testMarkerRegex.find(line)
             if (matchResult != null) {
-                var value = matchResult.groups[1]?.value?.toLowerCase()
+                val value = matchResult.groups[1]?.value?.toLowerCase()
                 if (!value.equals("true") && !value.equals("false")) {
                     fail("Unable parse test marker ${matchResult.value}")
                 }
@@ -68,14 +68,14 @@ class ExcessNullCheckerTest {
             currentLine++
         }
 
-        var outputDir = Paths.get("build", "test-results").toString()
-        var result = Runtime.getRuntime().exec("javac -d $outputDir $fullJavaFilePath").waitFor()
+        val outputDir = Paths.get("build", "test-results").toString()
+        val result = Runtime.getRuntime().exec("javac -d $outputDir $fullJavaFilePath").waitFor()
         if (result != 0) {
             fail("Unable to compile $fullJavaFilePath")
         }
 
-        var classFileName = Paths.get(outputDir, "test", "$fileName.class").toString()
-        var testLogger = TestLogger(expectedMessages)
+        val classFileName = Paths.get(outputDir, "test", "$fileName.class").toString()
+        val testLogger = TestLogger(expectedMessages)
 
         Analyzer(testLogger).run(classFileName)
 

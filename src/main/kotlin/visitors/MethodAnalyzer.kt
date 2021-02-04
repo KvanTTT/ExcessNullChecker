@@ -7,17 +7,19 @@ import NullType
 import Utils
 import jdk.internal.org.objectweb.asm.*
 
-class MethodAnalyzer : MethodVisitor {
+class MethodAnalyzer
+    (
+    isStatic: Boolean,
+    paramCount: Int,
+    private val finalFields: MutableMap<String, NullType?>,
+    private val logger: Logger
+) : MethodVisitor(Opcodes.ASM5) {
     private var currentLine: Int = -1
     private val stack: MutableList<DataEntry> = mutableListOf()
     private val resetStates: MutableMap<Label, MutableList<DataEntry>> = mutableMapOf()
     private val returnStates: MutableList<MutableList<NullType>> = mutableListOf()
-    private val finalFields: MutableMap<String, NullType?>
-    private val logger: Logger
 
-    constructor(isStatic: Boolean, paramCount: Int, finalFields: MutableMap<String, NullType?>, logger: Logger) : super(Opcodes.ASM5) {
-        this.finalFields = finalFields
-        this.logger = logger
+    init {
         var offset = 0
         if (!isStatic) {
             // First data entry is always not null for instance methods
@@ -78,7 +80,7 @@ class MethodAnalyzer : MethodVisitor {
 
     override fun visitLabel(p0: Label?) {
         // Restore the previous state of data entries after condition block
-        var stateAtLabel = resetStates[p0]
+        val stateAtLabel = resetStates[p0]
         if (stateAtLabel != null) {
             for (cond in stateAtLabel) {
                 set(cond.index, cond.type)
@@ -109,7 +111,7 @@ class MethodAnalyzer : MethodVisitor {
     }
 
     override fun visitMethodInsn(p0: Int, p1: String?, p2: String?, p3: String?, p4: Boolean) {
-        var paramsCount = Utils.getParamsCount(p3)
+        val paramsCount = Utils.getParamsCount(p3)
         if (p0 == Opcodes.INVOKEVIRTUAL || p0 == Opcodes.INVOKESPECIAL) {
             // Make virtual call and remove parameters from stack except of the first one
             for (i in 1..paramsCount)
@@ -118,7 +120,7 @@ class MethodAnalyzer : MethodVisitor {
             // Mark variable as NotNull because instance is always necessary during invocation
             // a.getHashCode()
             // if (a == null) // prevent excess check
-            var invocationDataEntry = pop()
+            val invocationDataEntry = pop()
             set(invocationDataEntry.index, NullType.NotNull)
 
             push(DataEntry(if (p0 == Opcodes.INVOKESPECIAL) NullType.NotNull else NullType.Unknown))
@@ -134,9 +136,9 @@ class MethodAnalyzer : MethodVisitor {
                 push(DataEntry(finalFields.getOrDefault(p2, NullType.Unknown) ?: NullType.Unknown))
             }
             Opcodes.PUTFIELD -> {
-                var currentDataEntry = pop()
+                val currentDataEntry = pop()
                 if (p2 != null && finalFields.containsKey(p2)) {
-                    var currentFieldType = finalFields[p2]
+                    val currentFieldType = finalFields[p2]
                     finalFields[p2] = when {
                         currentFieldType == null -> currentDataEntry.type
                         currentFieldType != currentDataEntry.type -> NullType.Unknown
@@ -156,15 +158,15 @@ class MethodAnalyzer : MethodVisitor {
     }
 
     override fun visitJumpInsn(p0: Int, p1: Label?) {
-        var currentDataEntry = pop()
+        val currentDataEntry = pop()
         if ((p0 == Opcodes.IFNULL || p0 == Opcodes.IFNONNULL) && p1 != null) {
-            var currentNullType = if (p0 == Opcodes.IFNULL) {
+            val currentNullType = if (p0 == Opcodes.IFNULL) {
                 NullType.NotNull
             } else {
                 NullType.Null
             }
-            var currentValueNullType = currentDataEntry.type
-            var currentDataEntryIndex = currentDataEntry.index
+            val currentValueNullType = currentDataEntry.type
+            val currentDataEntryIndex = currentDataEntry.index
 
             var oppositeNullType: NullType
             if (currentValueNullType != NullType.Unknown) {
@@ -179,10 +181,10 @@ class MethodAnalyzer : MethodVisitor {
             }
 
             if (oppositeNullType != NullType.Unknown) {
-                var expressionIsAlwaysTrue =
+                val expressionIsAlwaysTrue =
                     if (oppositeNullType == NullType.Null) currentNullType == NullType.Null
                     else currentNullType == NullType.NotNull
-                var diagnostics = ExcessCheckMessage(expressionIsAlwaysTrue, currentLine)
+                val diagnostics = ExcessCheckMessage(expressionIsAlwaysTrue, currentLine)
                 logger.log(diagnostics)
             }
 
@@ -211,7 +213,7 @@ class MethodAnalyzer : MethodVisitor {
     }
 
     override fun visitLineNumber(p0: Int, p1: Label?) {
-        currentLine = p0;
+        currentLine = p0
     }
 
     private fun checkReturnReachability(currentVarIndex: Int): NullType {
@@ -222,7 +224,7 @@ class MethodAnalyzer : MethodVisitor {
                 if (i != currentVarIndex) { // Check it later
                     if (returnState[i] != stack[i].type) {
                         next = true
-                        break;
+                        break
                     }
                 }
                 else {
@@ -249,11 +251,11 @@ class MethodAnalyzer : MethodVisitor {
     }
 
     private fun push(v: DataEntry) {
-        stack.add(v);
+        stack.add(v)
     }
 
     private fun pop(): DataEntry {
-        var result = stack[stack.size - 1]
+        val result = stack[stack.size - 1]
         stack.removeAt(stack.size - 1)
         return result
     }
