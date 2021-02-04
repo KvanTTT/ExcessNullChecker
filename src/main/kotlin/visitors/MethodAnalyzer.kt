@@ -1,13 +1,22 @@
+package visitors
+
+import DataEntry
+import ExcessCheckMessage
+import Logger
+import NullType
+import Utils
 import jdk.internal.org.objectweb.asm.*
 
-class ExcessNullCheckerMethodVisitor : MethodVisitor {
+class MethodAnalyzer : MethodVisitor {
     private var currentLine: Int = -1
-    private var stack: MutableList<DataEntry> = mutableListOf()
-    private var resetStates: MutableMap<Label, MutableList<DataEntry>> = mutableMapOf()
-    private var returnStates: MutableList<MutableList<NullType>> = mutableListOf()
+    private val stack: MutableList<DataEntry> = mutableListOf()
+    private val resetStates: MutableMap<Label, MutableList<DataEntry>> = mutableMapOf()
+    private val returnStates: MutableList<MutableList<NullType>> = mutableListOf()
+    private val finalFields: MutableMap<String, NullType?>
     private val logger: Logger
 
-    constructor(logger: Logger, isStatic: Boolean, paramCount: Int) : super(262144) {
+    constructor(isStatic: Boolean, paramCount: Int, finalFields: MutableMap<String, NullType?>, logger: Logger) : super(Opcodes.ASM5) {
+        this.finalFields = finalFields
         this.logger = logger
         var offset = 0
         if (!isStatic) {
@@ -19,6 +28,10 @@ class ExcessNullCheckerMethodVisitor : MethodVisitor {
             // Initialize local variables from parameters
             push(DataEntry(i + offset, NullType.Unknown))
         }
+    }
+
+    override fun visitAnnotation(p0: String?, p1: Boolean): AnnotationVisitor {
+        return super.visitAnnotation(p0, p1)
     }
 
     override fun visitCode() {
@@ -39,11 +52,11 @@ class ExcessNullCheckerMethodVisitor : MethodVisitor {
     override fun visitInsn(p0: Int) {
         when (p0) {
             Opcodes.ACONST_NULL -> {
-                push(DataEntry(0, NullType.Null))
+                push(DataEntry(NullType.Null))
             }
             Opcodes.RETURN -> {
                 // Store reachability at the current return point and check it during IFNULL or IFNONNULL checks
-                var returnState: MutableList<NullType> = mutableListOf()
+                val returnState: MutableList<NullType> = mutableListOf()
                 for (item in stack) {
                     returnState.add(item.type)
                 }
@@ -56,7 +69,7 @@ class ExcessNullCheckerMethodVisitor : MethodVisitor {
     }
 
     override fun visitLdcInsn(p0: Any?) {
-        push(DataEntry(0, NullType.NotNull))
+        push(DataEntry(NullType.NotNull))
     }
 
     override fun visitParameterAnnotation(p0: Int, p1: String?, p2: Boolean): AnnotationVisitor {
@@ -91,7 +104,7 @@ class ExcessNullCheckerMethodVisitor : MethodVisitor {
 
     override fun visitTypeInsn(p0: Int, p1: String?) {
         if (p0 == Opcodes.NEW) {
-            push(DataEntry(0, NullType.NotNull))
+            push(DataEntry(NullType.NotNull))
         }
     }
 
@@ -108,13 +121,29 @@ class ExcessNullCheckerMethodVisitor : MethodVisitor {
             var invocationDataEntry = pop()
             set(invocationDataEntry.index, NullType.NotNull)
 
-            push(DataEntry(0, if (p0 == Opcodes.INVOKESPECIAL) NullType.NotNull else NullType.Unknown))
+            push(DataEntry(if (p0 == Opcodes.INVOKESPECIAL) NullType.NotNull else NullType.Unknown))
         }
     }
 
     override fun visitFieldInsn(p0: Int, p1: String?, p2: String?, p3: String?) {
-        if (p0 == Opcodes.GETSTATIC) {
-            push(DataEntry(0, NullType.NotNull))
+        when (p0) {
+            Opcodes.GETSTATIC -> {
+                push(DataEntry(NullType.NotNull))
+            }
+            Opcodes.GETFIELD -> {
+                push(DataEntry(finalFields.getOrDefault(p2, NullType.Unknown) ?: NullType.Unknown))
+            }
+            Opcodes.PUTFIELD -> {
+                var currentDataEntry = pop()
+                if (p2 != null && finalFields.containsKey(p2)) {
+                    var currentFieldType = finalFields[p2]
+                    finalFields[p2] = when {
+                        currentFieldType == null -> currentDataEntry.type
+                        currentFieldType != currentDataEntry.type -> NullType.Unknown
+                        else -> currentFieldType
+                    }
+                }
+            }
         }
     }
 
@@ -129,7 +158,11 @@ class ExcessNullCheckerMethodVisitor : MethodVisitor {
     override fun visitJumpInsn(p0: Int, p1: Label?) {
         var currentDataEntry = pop()
         if ((p0 == Opcodes.IFNULL || p0 == Opcodes.IFNONNULL) && p1 != null) {
-            var currentNullType = if (p0 == Opcodes.IFNULL) { NullType.NotNull } else { NullType.Null }
+            var currentNullType = if (p0 == Opcodes.IFNULL) {
+                NullType.NotNull
+            } else {
+                NullType.Null
+            }
             var currentValueNullType = currentDataEntry.type
             var currentDataEntryIndex = currentDataEntry.index
 

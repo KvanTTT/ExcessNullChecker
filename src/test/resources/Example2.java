@@ -1,8 +1,7 @@
 package test;
 
 public class Example2 {
-    public static void test1(Object x)
-    {
+    public static void test1(Object x) {
         if (x == null) return;
         if (x != null) { // Test: true
             System.out.println("x != null");

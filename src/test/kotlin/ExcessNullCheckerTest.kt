@@ -1,7 +1,5 @@
-import jdk.internal.org.objectweb.asm.ClassReader
 import org.junit.Test
 import java.io.File
-import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.test.fail
 
@@ -38,6 +36,21 @@ class ExcessNullCheckerTest {
         testFile("Example6")
     }
 
+    @Test
+    fun finalField1() {
+        testFile("finalField1")
+    }
+
+    @Test
+    fun finalField2() {
+        testFile("finalField2")
+    }
+
+    @Test
+    fun finalField3() {
+        testFile("finalField3")
+    }
+
     fun testFile(fileName: String) {
         var fullJavaFilePath = Paths.get("src", "test", "resources", "$fileName.java").toString()
         var file = File(fullJavaFilePath)
@@ -61,12 +74,10 @@ class ExcessNullCheckerTest {
             fail("Unable to compile $fullJavaFilePath")
         }
 
-        var bytes = Files.readAllBytes(Paths.get(outputDir, "test", "$fileName.class"))
-        var classReader = ClassReader(bytes)
-
+        var classFileName = Paths.get(outputDir, "test", "$fileName.class").toString()
         var testLogger = TestLogger(expectedMessages)
-        var classVisitor = ExcessNullCheckerClassVisitor(testLogger)
-        classReader.accept(classVisitor, 0)
+
+        Analyzer(testLogger).run(classFileName)
 
         if (testLogger.notFoundMessages.size > 0) {
             fail("Not found: ${testLogger.notFoundMessages.first()}")
