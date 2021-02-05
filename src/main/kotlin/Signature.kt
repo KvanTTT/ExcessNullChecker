@@ -1,8 +1,8 @@
-data class Signature(val name: String, val paramsCount: Int, val isVoid: Boolean) {
+data class Signature(val fullName: String, val static: Boolean, val paramsCount: Int, val isVoid: Boolean) {
     companion object {
-        fun get(name: String?, params: String?): Signature {
+        fun get(static: Boolean, name: String?, params: String?): Signature {
             if (params == null)
-                return Signature("",0, true)
+                return Signature("", static,0, true)
 
             var paramsCount = 0
             var index = 0
@@ -26,7 +26,7 @@ data class Signature(val name: String, val paramsCount: Int, val isVoid: Boolean
                 index++
             }
 
-            return Signature(name ?: "", paramsCount, index >= params.length || params[index] == 'V')
+            return Signature(name + params, static, paramsCount, index >= params.length || params[index] == 'V')
         }
     }
 }

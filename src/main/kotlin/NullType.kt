@@ -1,5 +1,10 @@
 enum class NullType {
-    Unknown,
+    Uninitialized,
+    Mixed,
     Null,
-    NotNull
+    NotNull;
+
+    fun isDefined(): Boolean {
+        return this == Null || this == NotNull
+    }
 }

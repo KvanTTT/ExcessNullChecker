@@ -1,6 +1,6 @@
 class DataEntry {
     var index: Int = -1
-    var type: NullType = NullType.Unknown
+    var type: NullType = NullType.Mixed
 
     constructor(index: Int, type: NullType) {
         this.index = index
