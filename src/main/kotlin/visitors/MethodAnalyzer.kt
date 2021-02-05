@@ -4,13 +4,12 @@ import DataEntry
 import ExcessCheckMessage
 import Logger
 import NullType
-import Utils
+import Signature
 import jdk.internal.org.objectweb.asm.*
 
-class MethodAnalyzer
-    (
+class MethodAnalyzer(
     isStatic: Boolean,
-    paramCount: Int,
+    signature: Signature,
     private val finalFields: MutableMap<String, NullType?>,
     private val logger: Logger
 ) : MethodVisitor(Opcodes.ASM5) {
@@ -26,7 +25,7 @@ class MethodAnalyzer
             offset = 1
             push(DataEntry(0, NullType.NotNull))
         }
-        for (i in 0 until paramCount) {
+        for (i in 0 until signature.paramsCount) {
             // Initialize local variables from parameters
             push(DataEntry(i + offset, NullType.Unknown))
         }
@@ -111,19 +110,24 @@ class MethodAnalyzer
     }
 
     override fun visitMethodInsn(p0: Int, p1: String?, p2: String?, p3: String?, p4: Boolean) {
-        val paramsCount = Utils.getParamsCount(p3)
-        if (p0 == Opcodes.INVOKEVIRTUAL || p0 == Opcodes.INVOKESPECIAL) {
+        val signature = Signature.get(p2, p3)
+        if (p0 == Opcodes.INVOKEVIRTUAL || p0 == Opcodes.INVOKESPECIAL || p0 == Opcodes.INVOKESTATIC) {
             // Make virtual call and remove parameters from stack except of the first one
-            for (i in 1..paramsCount)
+            for (i in 0 until signature.paramsCount) {
                 pop()
+            }
 
-            // Mark variable as NotNull because instance is always necessary during invocation
-            // a.getHashCode()
-            // if (a == null) // prevent excess check
-            val invocationDataEntry = pop()
-            set(invocationDataEntry.index, NullType.NotNull)
+            if (p0 != Opcodes.INVOKESTATIC) {
+                // Mark variable as NotNull because instance is always necessary during invocation
+                // a.getHashCode()
+                // if (a == null) // prevent excess check
+                val invocationDataEntry = pop()
+                set(invocationDataEntry.index, NullType.NotNull)
+            }
 
-            push(DataEntry(if (p0 == Opcodes.INVOKESPECIAL) NullType.NotNull else NullType.Unknown))
+            if (!signature.isVoid) {
+                push(DataEntry(if (p0 == Opcodes.INVOKESPECIAL) NullType.NotNull else NullType.Unknown))
+            }
         }
     }
 
