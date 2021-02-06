@@ -6,6 +6,7 @@ import jdk.internal.org.objectweb.asm.*
 
 enum class BypassType {
     Constructors,
+    StaticConstructor,
     Methods,
     All
 }
@@ -22,9 +23,11 @@ class MethodAnalyzer(
 
     override fun visitMethod(p0: Int, p1: String?, p2: String?, p3: String?, p4: Array<out String>?): MethodVisitor {
         val isConstructor = p1.equals("<init>")
+        val isStaticConstructor = p1.equals("<clinit>")
 
         if (bypassType == BypassType.Constructors && !isConstructor ||
-            bypassType == BypassType.Methods && isConstructor) {
+            bypassType == BypassType.StaticConstructor && !isStaticConstructor ||
+            bypassType == BypassType.Methods && (isConstructor || isStaticConstructor)) {
             return EmptyMethodVisitor.instance
         }
 

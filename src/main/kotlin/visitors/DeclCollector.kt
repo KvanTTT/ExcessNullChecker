@@ -16,11 +16,11 @@ class DeclCollector : ClassVisitor(Opcodes.ASM5) {
             // Consider only final fields
             finalFields[p1] = NullType.Uninitialized
         }
-        return EmptyFieldVisitor()
+        return EmptyFieldVisitor.instance
     }
 
     override fun visitMethod(p0: Int, p1: String?, p2: String?, p3: String?, p4: Array<out String>?): MethodVisitor {
         availableMethods.add(p1 + p2)
-        return EmptyMethodVisitor()
+        return EmptyMethodVisitor.instance
     }
 }

@@ -37,18 +37,13 @@ class ExcessNullCheckerTest {
     }
 
     @Test
-    fun finalField1() {
-        testFile("finalField1")
+    fun fields() {
+        testFile("Fields")
     }
 
     @Test
-    fun finalField2() {
-        testFile("finalField2")
-    }
-
-    @Test
-    fun finalField3() {
-        testFile("finalField3")
+    fun methodCalls() {
+        testFile("MethodCalls")
     }
 
     fun testFile(fileName: String) {

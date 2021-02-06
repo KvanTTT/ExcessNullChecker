@@ -170,12 +170,14 @@ class CodeAnalyzer(
 
     override fun visitFieldInsn(p0: Int, p1: String?, p2: String?, p3: String?) {
         when (p0) {
-            Opcodes.GETSTATIC -> {
-                push(DataEntry(NullType.NotNull))
-            }
+            Opcodes.GETSTATIC,
             Opcodes.GETFIELD -> {
+                if (p0 == Opcodes.GETFIELD) {
+                    pop()
+                }
                 push(DataEntry(finalFields.getOrDefault(p2, NullType.Mixed)))
             }
+            Opcodes.PUTSTATIC,
             Opcodes.PUTFIELD -> {
                 val currentDataEntry = pop()
                 val currentFieldType = finalFields[p2]
@@ -185,6 +187,9 @@ class CodeAnalyzer(
                         currentFieldType != currentDataEntry.type -> NullType.Mixed
                         else -> currentFieldType
                     }
+                }
+                if (p0 == Opcodes.PUTFIELD) {
+                    pop()
                 }
             }
         }
