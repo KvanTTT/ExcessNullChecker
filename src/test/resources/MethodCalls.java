@@ -3,7 +3,7 @@ package test;
 public class MethodCalls {
 
     public void callFinal() {
-        if (callFinalHelper() != null) { // Test: true
+        if (callFinalHelper() != null) { // Test: condition_is_always_true
         }
     }
 
@@ -12,7 +12,7 @@ public class MethodCalls {
     }
 
     public void callFinal2() {
-        if (callFinalHelper2() != null) { // Test: false
+        if (callFinalHelper2() != null) { // Test: condition_is_always_false
         }
     }
 
@@ -21,7 +21,7 @@ public class MethodCalls {
     }
 
     public void callStatic() {
-        if (callStaticHelper() != null) { // Test: true
+        if (callStaticHelper() != null) { // Test: condition_is_always_true
         }
     }
 

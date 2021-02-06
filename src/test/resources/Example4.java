@@ -6,7 +6,7 @@ public class Example4 {
     }
 
     public void test() {
-        if (foo() != null) { // Test: true
+        if (foo() != null) { // Test: condition_is_always_true
             System.out.println("foo() != null");
         }
     }

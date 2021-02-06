@@ -3,7 +3,7 @@ package test;
 public class Example6 {
     public void test(Object a) {
         if (a != null) {
-            if (a != null) { // Test: true
+            if (a != null) { // Test: condition_is_always_true
                 System.out.println("a != null");
             }
         }
@@ -16,7 +16,7 @@ public class Example6 {
         }
 
         if (b != null) {
-            if (b != null) { // Test: true
+            if (b != null) { // Test: condition_is_always_true
                 System.out.println("b != null");
             }
         }
@@ -33,7 +33,7 @@ public class Example6 {
             if (b == null) {
                 return;
             }
-            if (b != null) { // Test: true
+            if (b != null) { // Test: condition_is_always_true
                 System.out.println("b != null");
             }
         }
@@ -51,7 +51,7 @@ public class Example6 {
         }
 
         if (b == null) {
-            if (a != null) { // Test: true
+            if (a != null) { // Test: condition_is_always_true
                 System.out.println("a != null && b == null");
             }
         }
@@ -77,7 +77,7 @@ public class Example6 {
         }
 
         if (c == null) {
-            if (b == null) { // Test: false
+            if (b == null) { // Test: condition_is_always_false
                 System.out.println("c == null && b == null");
             }
         }
@@ -85,11 +85,11 @@ public class Example6 {
 
     public void test7(Object a) {
         if (a == null) {
-            if (a == null) { // Test: true
+            if (a == null) { // Test: condition_is_always_true
                 System.out.println("a == null");
             }
 
-            if (a == null) { // Test: true
+            if (a == null) { // Test: condition_is_always_true
                 System.out.println("a == null");
             }
         }

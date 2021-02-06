@@ -28,20 +28,20 @@ public class Fields {
     public void test() {
         if (x == null) { // No warning since field is not final
         }
-        if (y1 == null) { // Test: false
+        if (y1 == null) { // Test: condition_is_always_false
         }
-        if (y2 == null) { // Test: true
+        if (y2 == null) { // Test: condition_is_always_true
         }
         if (z == null) { // No warning since field is not final
         }
-        if (w1 == null) { // Test: false
+        if (w1 == null) { // Test: condition_is_always_false
         }
 
-        if (a == null) { // Test: false
+        if (a == null) { // Test: condition_is_always_false
         }
         if (b == null) { // No warning since b may be both null and not null
         }
-        if (c == null) { // Test: false (IDEA fails here)
+        if (c == null) { // Test: condition_is_always_false (IDEA fails here)
         }
     }
 }

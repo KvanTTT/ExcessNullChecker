@@ -8,7 +8,7 @@ public class Example3 {
     }
 
     public void test() {
-        if (x == null) { // Test: false
+        if (x == null) { // Test: condition_is_always_false
             System.out.println("x == null");
         }
     }

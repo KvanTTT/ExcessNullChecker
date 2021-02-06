@@ -51,14 +51,16 @@ class ExcessNullCheckerTest {
         val file = File(fullJavaFilePath)
         val expectedMessages = mutableListOf<Message>()
         var currentLine = 1
+
+        // TODO: use real lexer for correct detection of markers including commented out
         file.forEachLine { line ->
             val matchResult = testMarkerRegex.find(line)
             if (matchResult != null) {
                 val value = matchResult.groups[1]?.value?.toLowerCase()
-                if (!value.equals("true") && !value.equals("false")) {
+                if (!value.equals("condition_is_always_true") && !value.equals("condition_is_always_false")) {
                     fail("Unable parse test marker ${matchResult.value}")
                 }
-                expectedMessages.add(ExcessCheckMessage(value.toBoolean(), currentLine))
+                expectedMessages.add(ExcessCheckMessage(value == "condition_is_always_true", currentLine))
             }
             currentLine++
         }
