@@ -55,7 +55,7 @@ class CodeAnalyzer(
     override fun visitInsn(p0: Int) {
         when (p0) {
             Opcodes.ACONST_NULL -> {
-                push(DataEntry(NullType.Null))
+                push(DataEntry(-1, NullType.Null))
             }
             Opcodes.IRETURN,
             Opcodes.DRETURN,
@@ -86,7 +86,7 @@ class CodeAnalyzer(
     }
 
     override fun visitLdcInsn(p0: Any?) {
-        push(DataEntry(NullType.NotNull))
+        push(DataEntry(-1, NullType.NotNull))
     }
 
     override fun visitParameterAnnotation(p0: Int, p1: String?, p2: Boolean): AnnotationVisitor {
@@ -121,7 +121,7 @@ class CodeAnalyzer(
 
     override fun visitTypeInsn(p0: Int, p1: String?) {
         if (p0 == Opcodes.NEW) {
-            push(DataEntry(NullType.NotNull))
+            push(DataEntry(-1, NullType.NotNull))
         }
     }
 
@@ -163,7 +163,7 @@ class CodeAnalyzer(
             }
 
             if (!signature.isVoid) {
-                push(DataEntry(returnType ?: NullType.Mixed))
+                push(DataEntry(-1, returnType ?: NullType.Mixed))
             }
         }
     }
@@ -175,7 +175,7 @@ class CodeAnalyzer(
                 if (p0 == Opcodes.GETFIELD) {
                     pop()
                 }
-                push(DataEntry(finalFields.getOrDefault(p2, NullType.Mixed)))
+                push(DataEntry(-1, finalFields.getOrDefault(p2, NullType.Mixed)))
             }
             Opcodes.PUTSTATIC,
             Opcodes.PUTFIELD -> {
@@ -293,11 +293,10 @@ class CodeAnalyzer(
 
         if (index >= stack.size) {
             for (i in 0..index-stack.size) {
-                stack.add(DataEntry(NullType.Mixed))
+                stack.add(DataEntry(-1, NullType.Mixed))
             }
         }
-        stack[index].index = index
-        stack[index].type = nullType
+        stack[index] = DataEntry(index, nullType)
     }
 
     private fun push(v: DataEntry) {
