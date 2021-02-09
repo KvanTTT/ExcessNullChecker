@@ -11,3 +11,13 @@ class EmptyFieldVisitor : FieldVisitor(Opcodes.ASM5) {
         instance = this
     }
 }
+
+class EmptyMethodVisitor : MethodVisitor(Opcodes.ASM5) {
+    companion object {
+        lateinit var instance: EmptyMethodVisitor
+    }
+
+    init {
+        instance = this
+    }
+}

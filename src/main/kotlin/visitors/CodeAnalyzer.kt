@@ -1,61 +1,84 @@
 package visitors
 
+import AnotherCondition
+import CfgNode
 import DataEntry
-import ExcessCheckMessage
 import Logger
+import NullCheckCondition
 import NullType
 import Signature
+import State
 import jdk.internal.org.objectweb.asm.*
 
 class CodeAnalyzer(
     private val signature: Signature,
     private val finalFields: MutableMap<String, NullType>,
     private val processedMethods: MutableMap<String, NullType>,
-    private val availableMethods: Set<String>,
+    private val methodsCfg: Map<String, Map<Int, CfgNode>>,
     private val classFileData: ByteArray,
     private val logger: Logger
-) : MethodVisitor(Opcodes.ASM5) {
+) : AdvancedVisitor() {
     private var currentLine: Int = -1
-    private val stack: MutableList<DataEntry> = mutableListOf()
-    private val resetStates: MutableMap<Label, MutableList<DataEntry>> = mutableMapOf()
-    private val returnStates: MutableList<MutableList<NullType>> = mutableListOf()
+    private var currentState: State = State()
+    private val cfgNodes: Map<Int, CfgNode>
+
+    private val cfgNodeStates: MutableMap<CfgNode, State> = mutableMapOf()
+    private var currentCfgNode: CfgNode? = null
 
     init {
         var offset = 0
         if (!signature.static) {
             // First data entry is always not null for instance methods
             offset = 1
-            push(DataEntry(0, NullType.NotNull))
+            currentState.push(DataEntry(0, NullType.NotNull))
         }
         for (i in 0 until signature.paramsCount) {
             // Initialize local variables from parameters
-            push(DataEntry(i + offset, NullType.Mixed))
+            currentState.push(DataEntry(i + offset, NullType.Mixed))
         }
+        cfgNodes = methodsCfg[signature.fullName]!!
     }
 
-    override fun visitAnnotation(p0: String?, p1: Boolean): AnnotationVisitor {
-        return super.visitAnnotation(p0, p1)
-    }
-
-    override fun visitCode() {
-    }
-
-    override fun visitEnd() {
+    override fun visitLineNumber(p0: Int, p1: Label?) {
+        currentLine = p0
     }
 
     override fun visitVarInsn(p0: Int, p1: Int) {
-        if (p0 == Opcodes.ALOAD) {
-            push(stack[p1])
+        checkState()
+        when (p0)  {
+            Opcodes.ILOAD,
+            Opcodes.LLOAD,
+            Opcodes.FLOAD,
+            Opcodes.DLOAD -> {
+                currentState.push(DataEntry(p1, NullType.Mixed))
+            }
+            Opcodes.ALOAD -> currentState.push(currentState.get(p1))
+            Opcodes.ASTORE -> currentState.set(p1, currentState.pop())
         }
-        else if (p0 == Opcodes.ASTORE) {
-            set(p1, pop().type)
-        }
+        incOffset()
     }
 
     override fun visitInsn(p0: Int) {
+        checkState()
         when (p0) {
             Opcodes.ACONST_NULL -> {
-                push(DataEntry(-1, NullType.Null))
+                currentState.push(DataEntry(Utils.UninitializedIndex, NullType.Null))
+            }
+            Opcodes.ICONST_M1,
+            Opcodes.ICONST_0,
+            Opcodes.ICONST_1,
+            Opcodes.ICONST_2,
+            Opcodes.ICONST_3,
+            Opcodes.ICONST_4,
+            Opcodes.ICONST_5,
+            Opcodes.LCONST_0,
+            Opcodes.LCONST_1,
+            Opcodes.FCONST_0,
+            Opcodes.FCONST_1,
+            Opcodes.FCONST_2,
+            Opcodes.DCONST_0,
+            Opcodes.DCONST_1 -> {
+                currentState.push(DataEntry(Utils.UninitializedIndex, NullType.Mixed))
             }
             Opcodes.IRETURN,
             Opcodes.DRETURN,
@@ -63,7 +86,7 @@ class CodeAnalyzer(
             Opcodes.LRETURN -> {
             }
             Opcodes.ARETURN -> {
-                val currentDataEntry = pop()
+                val currentDataEntry = currentState.pop()
                 val methodReturnType = processedMethods[signature.fullName]
                 processedMethods[signature.fullName] = when {
                     methodReturnType == NullType.Uninitialized -> currentDataEntry.type // if uninitialized
@@ -73,77 +96,64 @@ class CodeAnalyzer(
             }
             Opcodes.RETURN -> {
                 // Store reachability at the current return point and check it during IFNULL or IFNONNULL checks
-                val returnState: MutableList<NullType> = mutableListOf()
+                /*val returnState: MutableList<NullType> = mutableListOf()
                 for (item in stack) {
                     returnState.add(item.type)
                 }
-                returnStates.add(returnState)
+                returnStates.add(returnState)*/
             }
             Opcodes.DUP -> {
-                push(stack[stack.size - 1])
+                currentState.push(currentState.peek())
             }
         }
+        incOffset()
+    }
+
+    override fun visitIntInsn(p0: Int, p1: Int) {
+        checkState()
+        when (p0) {
+            Opcodes.BIPUSH,
+            Opcodes.SIPUSH -> {
+                currentState.push(DataEntry(Utils.UninitializedIndex, NullType.Mixed))
+            }
+        }
+        incOffset()
     }
 
     override fun visitLdcInsn(p0: Any?) {
-        push(DataEntry(-1, NullType.NotNull))
-    }
-
-    override fun visitParameterAnnotation(p0: Int, p1: String?, p2: Boolean): AnnotationVisitor {
-        return super.visitParameterAnnotation(p0, p1, p2)
-    }
-
-    override fun visitLabel(p0: Label?) {
-        // Restore the previous state of data entries after condition block
-        val stateAtLabel = resetStates[p0]
-        if (stateAtLabel != null) {
-            for (cond in stateAtLabel) {
-                set(cond.index, cond.type)
-            }
-        }
-    }
-
-    override fun visitTypeAnnotation(p0: Int, p1: TypePath?, p2: String?, p3: Boolean): AnnotationVisitor {
-        return super.visitTypeAnnotation(p0, p1, p2, p3)
-    }
-
-    override fun visitMultiANewArrayInsn(p0: String?, p1: Int) {
-        super.visitMultiANewArrayInsn(p0, p1)
-    }
-
-    override fun visitInsnAnnotation(p0: Int, p1: TypePath?, p2: String?, p3: Boolean): AnnotationVisitor {
-        return super.visitInsnAnnotation(p0, p1, p2, p3)
-    }
-
-    override fun visitIincInsn(p0: Int, p1: Int) {
-        super.visitIincInsn(p0, p1)
+        checkState()
+        currentState.push(DataEntry(Utils.UninitializedIndex, NullType.NotNull))
+        incOffset()
     }
 
     override fun visitTypeInsn(p0: Int, p1: String?) {
+        checkState()
         if (p0 == Opcodes.NEW) {
-            push(DataEntry(-1, NullType.NotNull))
+            currentState.push(DataEntry(-1, NullType.NotNull))
         }
+        incOffset()
     }
 
     override fun visitMethodInsn(p0: Int, p1: String?, p2: String?, p3: String?, p4: Boolean) {
+        checkState()
         val isStatic = p0 == Opcodes.INVOKESTATIC
         val signature = Signature.get(isStatic, p2, p3)
         if (p0 == Opcodes.INVOKEVIRTUAL || p0 == Opcodes.INVOKESPECIAL || p0 == Opcodes.INVOKESTATIC) {
             // Make virtual call and remove parameters from stack except of the first one
             for (i in 0 until signature.paramsCount) {
-                pop()
+                currentState.pop()
             }
 
             if (p0 != Opcodes.INVOKESTATIC) {
                 // Mark variable as NotNull because instance is always necessary during invocation
                 // a.getHashCode()
                 // if (a == null) // prevent excess check
-                val invocationDataEntry = pop()
-                set(invocationDataEntry.index, NullType.NotNull)
+                val invocationDataEntry = currentState.pop()
+                currentState.set(invocationDataEntry.index, DataEntry(invocationDataEntry.index, NullType.NotNull))
             }
 
             var returnType: NullType? = null
-            if (availableMethods.contains(signature.fullName)) {
+            if (methodsCfg.containsKey(signature.fullName)) {
                 returnType = processedMethods[signature.fullName]
                 if (returnType == null) {
                     // Recursive analysing...
@@ -151,7 +161,7 @@ class CodeAnalyzer(
                         BypassType.All,
                         finalFields,
                         processedMethods,
-                        availableMethods,
+                        methodsCfg,
                         signature.fullName,
                         classFileData,
                         logger
@@ -163,23 +173,25 @@ class CodeAnalyzer(
             }
 
             if (!signature.isVoid) {
-                push(DataEntry(-1, returnType ?: NullType.Mixed))
+                currentState.push(DataEntry(Utils.UninitializedIndex, returnType ?: NullType.Mixed))
             }
         }
+        incOffset()
     }
 
     override fun visitFieldInsn(p0: Int, p1: String?, p2: String?, p3: String?) {
+        checkState()
         when (p0) {
             Opcodes.GETSTATIC,
             Opcodes.GETFIELD -> {
                 if (p0 == Opcodes.GETFIELD) {
-                    pop()
+                    currentState.pop()
                 }
-                push(DataEntry(-1, finalFields.getOrDefault(p2, NullType.Mixed)))
+                currentState.push(DataEntry(Utils.UninitializedIndex, finalFields.getOrDefault(p2, NullType.Mixed)))
             }
             Opcodes.PUTSTATIC,
             Opcodes.PUTFIELD -> {
-                val currentDataEntry = pop()
+                val currentDataEntry = currentState.pop()
                 val currentFieldType = finalFields[p2]
                 if (p2 != null && currentFieldType != null) {
                     finalFields[p2] = when {
@@ -189,123 +201,78 @@ class CodeAnalyzer(
                     }
                 }
                 if (p0 == Opcodes.PUTFIELD) {
-                    pop()
+                    currentState.pop()
                 }
             }
         }
-    }
-
-    override fun visitLocalVariable(p0: String?, p1: String?, p2: String?, p3: Label?, p4: Label?, p5: Int) {
-        super.visitLocalVariable(p0, p1, p2, p3, p4, p5)
-    }
-
-    override fun visitIntInsn(p0: Int, p1: Int) {
-        super.visitIntInsn(p0, p1)
+        incOffset()
     }
 
     override fun visitJumpInsn(p0: Int, p1: Label?) {
-        val currentDataEntry = pop()
-        if ((p0 == Opcodes.IFNULL || p0 == Opcodes.IFNONNULL) && p1 != null) {
-            val currentNullType = if (p0 == Opcodes.IFNULL) {
-                NullType.NotNull
-            } else {
-                NullType.Null
+        checkState()
+        when (p0) {
+            Opcodes.IF_ICMPEQ,
+            Opcodes.IF_ICMPNE,
+            Opcodes.IF_ICMPLT,
+            Opcodes.IF_ICMPGE,
+            Opcodes.IF_ICMPGT,
+            Opcodes.IF_ICMPLE,
+            Opcodes.IF_ACMPEQ,
+            Opcodes.IF_ACMPNE -> {
+                currentState.pop()
+                currentState.pop()
+                currentState.condition = AnotherCondition(currentLine)
             }
-            val currentValueNullType = currentDataEntry.type
-            val currentDataEntryIndex = currentDataEntry.index
+            Opcodes.IFEQ,
+            Opcodes.IFNE,
+            Opcodes.IFLT,
+            Opcodes.IFGE,
+            Opcodes.IFGT,
+            Opcodes.IFLE -> {
+                currentState.pop()
+                currentState.condition = AnotherCondition(currentLine)
+            }
+            Opcodes.GOTO -> {
+                currentState.condition = null
+            }
+            Opcodes.IFNULL,
+            Opcodes.IFNONNULL -> {
+                val dataEntry = currentState.pop()
+                currentState.condition = NullCheckCondition(currentLine, dataEntry.index, dataEntry.type)
+            }
+        }
+        incOffset()
+    }
 
-            var oppositeNullType: NullType
-            if (currentValueNullType.isDefined()) {
-                oppositeNullType = currentValueNullType
-            }
-            else
-            {
-                oppositeNullType = checkReturnReachability(currentDataEntryIndex)
-                if (oppositeNullType.isDefined()) {
-                    oppositeNullType = when (oppositeNullType) {
-                        NullType.Null -> NullType.NotNull
-                        NullType.NotNull -> NullType.Null
-                        else -> NullType.Mixed
+    private fun checkState() {
+        val cfgNode = currentCfgNode
+
+        if (cfgNode != null && offset == cfgNode.end) {
+            // Save state
+            cfgNodeStates[cfgNode] = State(currentState)
+        }
+
+        var resultState: State? = null
+
+        val nextCfgNode = cfgNodes[offset]
+        if (nextCfgNode != null) {
+            // Restore state
+            for (link in nextCfgNode.links) {
+                if (link.end == nextCfgNode) {
+                    val prevState = cfgNodeStates[link.begin]
+                    if (prevState != null) {
+                        if (resultState == null) {
+                            resultState = State(prevState)
+                            currentState = resultState
+                        }
+                        else {
+                            resultState.merge(prevState)
+                        }
                     }
                 }
             }
 
-            if (oppositeNullType.isDefined()) {
-                val expressionIsAlwaysTrue =
-                    if (oppositeNullType == NullType.Null) currentNullType == NullType.Null
-                    else currentNullType == NullType.NotNull
-                val diagnostics = ExcessCheckMessage(expressionIsAlwaysTrue, currentLine)
-                logger.log(diagnostics)
-            }
-
-            var stateAtLabel = resetStates[p1]
-            if (stateAtLabel == null) {
-                stateAtLabel = mutableListOf()
-                resetStates[p1] = stateAtLabel
-            }
-            // save previous data entry states for further restoring
-            stateAtLabel.add(DataEntry(currentDataEntryIndex, currentValueNullType))
-
-            set(currentDataEntryIndex, currentNullType)
+            currentCfgNode = nextCfgNode
         }
-    }
-
-    override fun visitParameter(p0: String?, p1: Int) {
-        super.visitParameter(p0, p1)
-    }
-
-    override fun visitInvokeDynamicInsn(p0: String?, p1: String?, p2: Handle?, vararg p3: Any?) {
-        super.visitInvokeDynamicInsn(p0, p1, p2, *p3)
-    }
-
-    override fun visitFrame(p0: Int, p1: Int, p2: Array<out Any>?, p3: Int, p4: Array<out Any>?) {
-        super.visitFrame(p0, p1, p2, p3, p4)
-    }
-
-    override fun visitLineNumber(p0: Int, p1: Label?) {
-        currentLine = p0
-    }
-
-    private fun checkReturnReachability(currentVarIndex: Int): NullType {
-        var oppositeDataEntryState: NullType = NullType.Mixed
-        for (returnState in returnStates) {
-            var next = false
-            for (i in 0 until returnState.size) {
-                if (i != currentVarIndex) { // Check it later
-                    if (returnState[i] != stack[i].type) {
-                        next = true
-                        break
-                    }
-                }
-                else {
-                    oppositeDataEntryState = returnState[i]
-                }
-            }
-            if (!next)
-                return oppositeDataEntryState
-        }
-        return oppositeDataEntryState
-    }
-
-    private fun set(index: Int, nullType: NullType) {
-        if (index == -1)
-            return
-
-        if (index >= stack.size) {
-            for (i in 0..index-stack.size) {
-                stack.add(DataEntry(-1, NullType.Mixed))
-            }
-        }
-        stack[index] = DataEntry(index, nullType)
-    }
-
-    private fun push(v: DataEntry) {
-        stack.add(v)
-    }
-
-    private fun pop(): DataEntry {
-        val result = stack[stack.size - 1]
-        stack.removeAt(stack.size - 1)
-        return result
     }
 }

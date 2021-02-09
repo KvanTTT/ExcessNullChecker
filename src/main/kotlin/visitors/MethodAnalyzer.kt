@@ -1,5 +1,6 @@
 package visitors
 
+import CfgNode
 import Logger
 import NullType
 import jdk.internal.org.objectweb.asm.*
@@ -15,8 +16,9 @@ class MethodAnalyzer(
     private val bypassType: BypassType,
     private val finalFields: MutableMap<String, NullType>,
     private val processedMethods: MutableMap<String, NullType>,
-    private val availableMethods: Set<String>,
-    private val methodToProcess: String? = null, private val classFileData: ByteArray,
+    private val methodsInfos: Map<String, Map<Int, CfgNode>>,
+    private val methodToProcess: String? = null,
+    private val classFileData: ByteArray,
     private val logger: Logger
 )
     : ClassVisitor(Opcodes.ASM5) {
@@ -46,7 +48,7 @@ class MethodAnalyzer(
                 signature,
                 finalFields,
                 processedMethods,
-                availableMethods,
+                methodsInfos,
                 classFileData,
                 logger
             )
