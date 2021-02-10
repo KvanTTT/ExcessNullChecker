@@ -46,6 +46,11 @@ class ExcessNullCheckerTest {
         testFile("MethodCalls")
     }
 
+    @Test
+    fun misc() {
+        testFile("Misc")
+    }
+
     fun testFile(fileName: String) {
         val fullJavaFilePath = Paths.get("src", "test", "resources", "$fileName.java").toString()
         val file = File(fullJavaFilePath)

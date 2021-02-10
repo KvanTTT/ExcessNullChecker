@@ -12,8 +12,9 @@ import NullCheckCondition
 import NullType
 import Signature
 import State
-import Uninitialized
 import jdk.internal.org.objectweb.asm.*
+import java.lang.UnsupportedOperationException
+import Uninitialized
 
 class CodeAnalyzer(
     private val signature: Signature,
@@ -24,7 +25,6 @@ class CodeAnalyzer(
     private val classFileData: ByteArray,
     private val logger: Logger
 ) : AdvancedVisitor() {
-    private var currentLine: Int = -1
     private var currentState: State
     private val cfgNodes: Map<Int, CfgNode> = methodsCfg[signature.fullName]!!
 
@@ -48,10 +48,6 @@ class CodeAnalyzer(
         }
     }
 
-    override fun visitLineNumber(p0: Int, p1: Label?) {
-        currentLine = p0
-    }
-
     override fun visitVarInsn(p0: Int, p1: Int) {
         checkState()
         when (p0)  {
@@ -62,7 +58,18 @@ class CodeAnalyzer(
                 currentState.push(DataEntry(p1, NullType.Mixed))
             }
             Opcodes.ALOAD -> currentState.push(currentState.get(p1))
-            Opcodes.ASTORE -> currentState.set(p1, currentState.pop())
+
+            Opcodes.ISTORE,
+            Opcodes.LSTORE,
+            Opcodes.FSTORE,
+            Opcodes.DSTORE -> {
+                currentState.set(p1, DataEntry(NullType.Mixed))
+            }
+            Opcodes.ASTORE -> {
+                currentState.set(p1, currentState.pop())
+            }
+
+            else -> throwUnsupportedOpcode(p0)
         }
         incOffset()
     }
@@ -107,6 +114,69 @@ class CodeAnalyzer(
 
                 currentState.clear()
             }
+            Opcodes.IADD,
+            Opcodes.LADD,
+            Opcodes.FADD,
+            Opcodes.DADD,
+            Opcodes.IMUL,
+            Opcodes.LMUL,
+            Opcodes.FMUL,
+            Opcodes.DMUL,
+            Opcodes.IDIV,
+            Opcodes.LDIV,
+            Opcodes.FDIV,
+            Opcodes.DDIV,
+            Opcodes.IREM,
+            Opcodes.LREM,
+            Opcodes.FREM,
+            Opcodes.DREM,
+            Opcodes.ISUB,
+            Opcodes.LSUB,
+            Opcodes.FSUB,
+            Opcodes.DSUB,
+            Opcodes.ISHL,
+            Opcodes.LSHL,
+            Opcodes.ISHR,
+            Opcodes.LSHR,
+            Opcodes.IUSHR,
+            Opcodes.IAND,
+            Opcodes.LAND,
+            Opcodes.IOR,
+            Opcodes.LOR,
+            Opcodes.IXOR,
+            Opcodes.LXOR,
+            Opcodes.LCMP,
+            Opcodes.FCMPL,
+            Opcodes.FCMPG,
+            Opcodes.DCMPL,
+            Opcodes.DCMPG -> {
+                currentState.pop()
+                currentState.pop()
+                currentState.push(DataEntry(NullType.Mixed))
+            }
+            Opcodes.INEG,
+            Opcodes.LNEG,
+            Opcodes.FNEG,
+            Opcodes.DNEG,
+            Opcodes.I2L,
+            Opcodes.I2F,
+            Opcodes.I2D,
+            Opcodes.L2I,
+            Opcodes.L2F,
+            Opcodes.L2D,
+            Opcodes.F2I,
+            Opcodes.F2L,
+            Opcodes.F2D,
+            Opcodes.D2I,
+            Opcodes.D2L,
+            Opcodes.D2F,
+            Opcodes.I2B,
+            Opcodes.I2C,
+            Opcodes.I2S -> {
+                currentState.pop()
+                currentState.push(DataEntry(NullType.Mixed))
+            }
+            else -> throwUnsupportedOpcode(p0)
         }
         incOffset()
     }
@@ -118,6 +188,7 @@ class CodeAnalyzer(
             Opcodes.SIPUSH -> {
                 currentState.push(DataEntry(NullType.Mixed))
             }
+            else -> throwUnsupportedOpcode(p0)
         }
         incOffset()
     }
@@ -132,6 +203,8 @@ class CodeAnalyzer(
         checkState()
         if (p0 == Opcodes.NEW) {
             currentState.push(DataEntry(NullType.NotNull))
+        } else {
+            throwUnsupportedOpcode(p0)
         }
         incOffset()
     }
@@ -185,6 +258,8 @@ class CodeAnalyzer(
             if (!signature.isVoid) {
                 currentState.push(DataEntry(Uninitialized, returnType))
             }
+        } else {
+            throwUnsupportedOpcode(p0)
         }
         incOffset()
     }
@@ -206,7 +281,7 @@ class CodeAnalyzer(
             Opcodes.PUTFIELD -> {
                 val dataEntry = currentState.pop()
                 if (p2 != null) {
-                    currentState.set(p2, dataEntry)
+                    currentState.setField(p2, dataEntry)
                     val finalField = processedFinalFields[p2]
                     if (finalField != null) {
                         processedFinalFields[p2] = finalField.merge(dataEntry.type)
@@ -216,16 +291,9 @@ class CodeAnalyzer(
                     popAndSetNotNull()
                 }
             }
+            else -> throwUnsupportedOpcode(p0)
         }
         incOffset()
-    }
-
-    private fun popAndSetNotNull() {
-        // Mark variable as NotNull because instance is always necessary during invocation
-        // a.getHashCode()
-        // if (a == null) // prevent excess check
-        val instance = currentState.pop()
-        currentState.set(instance.name, DataEntry(instance.name, NullType.NotNull))
     }
 
     override fun visitJumpInsn(p0: Int, p1: Label?) {
@@ -279,8 +347,22 @@ class CodeAnalyzer(
 
                 currentState.condition = condition
             }
+            else -> throwUnsupportedOpcode(p0)
         }
         incOffset()
+    }
+
+    override fun visitIincInsn(p0: Int, p1: Int) {
+        checkState()
+        incOffset()
+    }
+
+    private fun popAndSetNotNull() {
+        // Mark variable as NotNull because instance is always necessary during invocation
+        // a.getHashCode()
+        // if (a == null) // prevent excess check
+        val instance = currentState.pop()
+        currentState.set(instance.name, DataEntry(instance.name, NullType.NotNull))
     }
 
     private fun checkState() {
@@ -299,22 +381,21 @@ class CodeAnalyzer(
             var linksCount = 0
             var firstState: State? = null
             var firstLink: CfgLink? = null
-            for (link in nextCfgNode.links) {
-                if (link.end == nextCfgNode) {
-                    val prevState = cfgNodeStates[link.begin]
-                    if (prevState != null) {
-                        if (resultState == null) {
-                            firstLink = link
-                            firstState = prevState
-                            resultState = State(prevState, nextCfgNode, null)
-                            currentState = resultState
-                        }
-                        else {
-                            resultState.merge(prevState)
-                        }
+
+            val actualLinks = nextCfgNode.links.filter { link -> link.end == nextCfgNode }
+            for (link in actualLinks) {
+                val prevState = cfgNodeStates[link.begin]
+                if (prevState != null) {
+                    if (resultState == null) {
+                        firstLink = link
+                        firstState = prevState
+                        resultState = State(prevState, nextCfgNode, null)
+                        currentState = resultState
+                    } else {
+                        resultState.merge(prevState)
                     }
-                    linksCount++
                 }
+                linksCount++
             }
 
             // Set state of outer block after inner return statement
@@ -326,5 +407,9 @@ class CodeAnalyzer(
                 }
             }
         }
+    }
+
+    private fun throwUnsupportedOpcode(opcode: Int) {
+        throw UnsupportedOperationException("Opcode $opcode is not supported")
     }
 }
