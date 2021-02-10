@@ -3,6 +3,7 @@ package visitors
 import CfgLink
 import CfgLinkType
 import CfgNode
+import CfgReturnIndex
 import jdk.internal.org.objectweb.asm.ClassVisitor
 import jdk.internal.org.objectweb.asm.Label
 import jdk.internal.org.objectweb.asm.MethodVisitor
@@ -19,10 +20,6 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
     private val visitedLabels: MutableMap<Label, CfgNode> = mutableMapOf()
     private val linksAtLabels: MutableMap<Label, MutableList<Pair<CfgNode, CfgLinkType>>> = mutableMapOf()
     private var nextLinkType: CfgLinkType? = null
-
-    override fun visitInsn(p0: Int) {
-        initializeCfgNode()
-    }
 
     override fun visitVarInsn(p0: Int, p1: Int) {
         initializeCfgNode()
@@ -52,6 +49,26 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
         initializeCfgNode()
     }
 
+    override fun visitInsn(p0: Int) {
+        initializeCfgNode()
+
+        when (p0) {
+            Opcodes.IRETURN,
+            Opcodes.DRETURN,
+            Opcodes.FRETURN,
+            Opcodes.LRETURN,
+            Opcodes.ARETURN,
+            Opcodes.RETURN -> {
+                val cfgNode = currentCfgNode
+                val returnCfgNode = cfg[CfgReturnIndex]
+                if (cfgNode != null && returnCfgNode != null) {
+                    addLink(cfgNode, returnCfgNode, CfgLinkType.Epsilon)
+                    nextLinkType = null
+                }
+            }
+        }
+    }
+
     override fun visitJumpInsn(p0: Int, p1: Label?) {
         initializeCfgNode()
 
@@ -74,7 +91,7 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
             Opcodes.IFNULL,
             Opcodes.IFNONNULL -> {
                 cfgLinkType = CfgLinkType.True
-                nextLinkType = CfgLinkType.True
+                nextLinkType = CfgLinkType.False
             }
             Opcodes.GOTO -> {
                 cfgLinkType = CfgLinkType.Epsilon
@@ -87,9 +104,7 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
         if (cfgNode != null) {
             val jumpCfgNode = visitedLabels[p1]
             if (jumpCfgNode != null) {
-                val cfgLink = CfgLink(cfgNode, jumpCfgNode, cfgLinkType)
-                cfgNode.links.add(cfgLink)
-                jumpCfgNode.links.add(cfgLink)
+                addLink(cfgNode, jumpCfgNode, cfgLinkType)
             }
             else if (p1 != null) {
                 var linkAtLabel = linksAtLabels[p1]
@@ -109,18 +124,23 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
         val cfgNode = currentCfgNode
         if (linkAtLabel != null && cfgNode != null) {
             for (item in linkAtLabel) {
-                val prevCfgNode = item.first
-                val cfgLink = CfgLink(prevCfgNode, cfgNode, item.second)
-                prevCfgNode.links.add(cfgLink)
-                cfgNode.links.add(cfgLink)
+                addLink(item.first, cfgNode, item.second)
             }
         }
     }
 
     override fun visitEnd() {
         val cfgNode = currentCfgNode
-        if (cfgNode != null)
+        if (cfgNode != null) {
             cfgNode.end = offset
+
+            val returnCfgNode = cfg[CfgReturnIndex]
+            if (returnCfgNode != null) {
+                returnCfgNode.end = offset
+                if (nextLinkType == CfgLinkType.Epsilon)
+                    addLink(cfgNode, returnCfgNode, CfgLinkType.Epsilon)
+            }
+        }
     }
 
     private fun initializeCfgNode(incOffset: Boolean = true) {
@@ -131,10 +151,9 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
             if (cfgNode != null && cfgNode != nextCfgNode) {
                 cfgNode.end = offset
 
-                if (nextLinkType != null) {
-                    val cfgLink = CfgLink(cfgNode, nextCfgNode, nextLinkType!!)
-                    cfgNode.links.add(cfgLink)
-                    nextCfgNode.links.add(cfgLink)
+                val nextType = nextLinkType
+                if (nextType != null) {
+                    addLink(cfgNode, nextCfgNode, nextType)
                 }
                 nextLinkType = CfgLinkType.Epsilon
             }
@@ -143,5 +162,11 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
         }
         if (incOffset)
             incOffset()
+    }
+
+    private fun addLink(begin: CfgNode, end: CfgNode, linkType: CfgLinkType) {
+        val cfgLink = CfgLink(begin, end, linkType)
+        begin.links.add(cfgLink)
+        end.links.add(cfgLink)
     }
 }

@@ -1,13 +1,16 @@
 class State {
     val items: MutableList<DataEntry> = mutableListOf()
+    val cfgNode: CfgNode?
     public var condition: Condition? = null
 
-    constructor(otherStack: State) : this() {
+    constructor(otherStack: State, cfgNode: CfgNode?) : this(cfgNode) {
         for (item in otherStack.items)
             items.add(item)
+        condition = otherStack.condition
     }
 
-    constructor() {
+    constructor(cfgNode: CfgNode?) {
+        this.cfgNode = cfgNode
     }
 
     fun push(dataEntry: DataEntry) {
@@ -42,6 +45,10 @@ class State {
             if (dataEntry.index == Utils.UninitializedIndex) index else
                 dataEntry.index,
             dataEntry.type)
+    }
+
+    fun clear() {
+        items.clear()
     }
 
     fun merge(otherStack: State) {

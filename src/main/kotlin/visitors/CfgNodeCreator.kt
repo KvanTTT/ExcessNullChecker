@@ -1,6 +1,7 @@
 package visitors
 
 import CfgNode
+import CfgReturnIndex
 import jdk.internal.org.objectweb.asm.ClassVisitor
 import jdk.internal.org.objectweb.asm.Label
 import jdk.internal.org.objectweb.asm.MethodVisitor
@@ -20,6 +21,10 @@ class CfgNodeCreatorHelper(
     private val methodCfg: MutableMap<Int, CfgNode>
 ): AdvancedVisitor() {
     private var markNextInstruction: Boolean = true
+
+    override fun visitCode() {
+        methodCfg[CfgReturnIndex] = CfgNode(-1)
+    }
 
     override fun visitInsn(p0: Int) {
         createCfgNode()

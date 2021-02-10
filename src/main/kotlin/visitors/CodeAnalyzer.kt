@@ -1,8 +1,11 @@
 package visitors
 
 import AnotherCondition
+import CfgLinkType
 import CfgNode
+import Condition
 import DataEntry
+import ExcessCheckMessage
 import Logger
 import NullCheckCondition
 import NullType
@@ -19,13 +22,13 @@ class CodeAnalyzer(
     private val logger: Logger
 ) : AdvancedVisitor() {
     private var currentLine: Int = -1
-    private var currentState: State = State()
-    private val cfgNodes: Map<Int, CfgNode>
+    private var currentState: State
+    private val cfgNodes: Map<Int, CfgNode> = methodsCfg[signature.fullName]!!
 
     private val cfgNodeStates: MutableMap<CfgNode, State> = mutableMapOf()
-    private var currentCfgNode: CfgNode? = null
 
     init {
+        currentState = State(cfgNodes[0])
         var offset = 0
         if (!signature.static) {
             // First data entry is always not null for instance methods
@@ -36,7 +39,6 @@ class CodeAnalyzer(
             // Initialize local variables from parameters
             currentState.push(DataEntry(i + offset, NullType.Mixed))
         }
-        cfgNodes = methodsCfg[signature.fullName]!!
     }
 
     override fun visitLineNumber(p0: Int, p1: Label?) {
@@ -80,30 +82,23 @@ class CodeAnalyzer(
             Opcodes.DCONST_1 -> {
                 currentState.push(DataEntry(Utils.UninitializedIndex, NullType.Mixed))
             }
+            Opcodes.DUP -> {
+                currentState.push(currentState.peek())
+            }
             Opcodes.IRETURN,
             Opcodes.DRETURN,
             Opcodes.FRETURN,
-            Opcodes.LRETURN -> {
-            }
-            Opcodes.ARETURN -> {
-                val currentDataEntry = currentState.pop()
-                val methodReturnType = processedMethods[signature.fullName]
-                processedMethods[signature.fullName] = when {
-                    methodReturnType == NullType.Uninitialized -> currentDataEntry.type // if uninitialized
-                    methodReturnType != currentDataEntry.type -> NullType.Mixed
-                    else -> methodReturnType
-                }
-            }
+            Opcodes.LRETURN,
+            Opcodes.ARETURN,
             Opcodes.RETURN -> {
-                // Store reachability at the current return point and check it during IFNULL or IFNONNULL checks
-                /*val returnState: MutableList<NullType> = mutableListOf()
-                for (item in stack) {
-                    returnState.add(item.type)
+                if (p0 != Opcodes.RETURN) {
+                    val currentDataEntry = currentState.pop()
+                    val methodReturnType = processedMethods[signature.fullName]
+                    if (methodReturnType != null)
+                        processedMethods[signature.fullName] = methodReturnType.merge(currentDataEntry.type)
                 }
-                returnStates.add(returnState)*/
-            }
-            Opcodes.DUP -> {
-                currentState.push(currentState.peek())
+
+                currentState.clear()
             }
         }
         incOffset()
@@ -194,11 +189,7 @@ class CodeAnalyzer(
                 val currentDataEntry = currentState.pop()
                 val currentFieldType = finalFields[p2]
                 if (p2 != null && currentFieldType != null) {
-                    finalFields[p2] = when {
-                        currentFieldType == NullType.Uninitialized -> currentDataEntry.type // if uninitialized
-                        currentFieldType != currentDataEntry.type -> NullType.Mixed
-                        else -> currentFieldType
-                    }
+                    finalFields[p2] = currentFieldType.merge(currentDataEntry.type)
                 }
                 if (p0 == Opcodes.PUTFIELD) {
                     currentState.pop()
@@ -238,18 +229,37 @@ class CodeAnalyzer(
             Opcodes.IFNULL,
             Opcodes.IFNONNULL -> {
                 val dataEntry = currentState.pop()
-                currentState.condition = NullCheckCondition(currentLine, dataEntry.index, dataEntry.type)
+                val checkType = if (p0 == Opcodes.IFNULL) NullType.NotNull else NullType.Null
+                val dataEntryType = dataEntry.type
+
+                var conditionIsAlwaysTrue: Boolean? = null
+                if (dataEntryType.isDefined()) {
+                    conditionIsAlwaysTrue =
+                        if (checkType == NullType.Null) dataEntryType == NullType.Null else dataEntryType == NullType.NotNull
+                }
+                else {
+                    // TODO: support of complex nexted return condtions
+                }
+
+                val condition = if (conditionIsAlwaysTrue != null) {
+                    logger.log(ExcessCheckMessage(conditionIsAlwaysTrue, currentLine))
+                    if (conditionIsAlwaysTrue) null else AnotherCondition(currentLine)
+                } else {
+                    NullCheckCondition(currentLine, dataEntry.index, checkType)
+                }
+
+                currentState.condition = condition
             }
         }
         incOffset()
     }
 
     private fun checkState() {
-        val cfgNode = currentCfgNode
+        val cfgNode = currentState.cfgNode
 
         if (cfgNode != null && offset == cfgNode.end) {
             // Save state
-            cfgNodeStates[cfgNode] = State(currentState)
+            cfgNodeStates[cfgNode] = State(currentState, cfgNode)
         }
 
         var resultState: State? = null
@@ -262,7 +272,7 @@ class CodeAnalyzer(
                     val prevState = cfgNodeStates[link.begin]
                     if (prevState != null) {
                         if (resultState == null) {
-                            resultState = State(prevState)
+                            resultState = State(prevState, nextCfgNode)
                             currentState = resultState
                         }
                         else {
@@ -271,8 +281,6 @@ class CodeAnalyzer(
                     }
                 }
             }
-
-            currentCfgNode = nextCfgNode
         }
     }
 }
