@@ -19,7 +19,7 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
     private var currentCfgNode: CfgNode? = null
     private val visitedLabels: MutableMap<Label, CfgNode> = mutableMapOf()
     private val linksAtLabels: MutableMap<Label, MutableList<Pair<CfgNode, CfgLinkType>>> = mutableMapOf()
-    private var nextLinkType: CfgLinkType? = null
+    private var nextLinkType: CfgLinkType? = CfgLinkType.Epsilon
 
     override fun visitVarInsn(p0: Int, p1: Int) {
         initializeCfgNode()
@@ -120,8 +120,12 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
     override fun visitLabel(p0: Label?) {
         initializeCfgNode(false)
 
-        val linkAtLabel = linksAtLabels[p0]
         val cfgNode = currentCfgNode
+        if (p0 != null && cfgNode != null) {
+            visitedLabels[p0] = cfgNode
+        }
+
+        val linkAtLabel = linksAtLabels[p0]
         if (linkAtLabel != null && cfgNode != null) {
             for (item in linkAtLabel) {
                 addLink(item.first, cfgNode, item.second)
@@ -137,8 +141,10 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
             val returnCfgNode = cfg[CfgReturnIndex]
             if (returnCfgNode != null) {
                 returnCfgNode.end = offset
-                if (nextLinkType == CfgLinkType.Epsilon)
-                    addLink(cfgNode, returnCfgNode, CfgLinkType.Epsilon)
+                val nextType = nextLinkType
+                if (nextType != null)
+                    addLink(cfgNode, returnCfgNode, nextType)
+                nextLinkType = CfgLinkType.Epsilon
             }
         }
     }
@@ -152,9 +158,8 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
                 cfgNode.end = offset
 
                 val nextType = nextLinkType
-                if (nextType != null) {
+                if (nextType != null)
                     addLink(cfgNode, nextCfgNode, nextType)
-                }
                 nextLinkType = CfgLinkType.Epsilon
             }
 

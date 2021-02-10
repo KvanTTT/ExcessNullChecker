@@ -6,8 +6,15 @@ import jdk.internal.org.objectweb.asm.Opcodes
 
 open class AdvancedVisitor : MethodVisitor(Opcodes.ASM5) {
     private var _offset: Int = 0
+    private var _currentLine: Int = 0
     protected val offset: Int
         get() = _offset
+    protected val currentLine: Int
+        get() = _currentLine
+
+    override fun visitLineNumber(p0: Int, p1: Label?) {
+        _currentLine = p0
+    }
 
     override fun visitInsn(p0: Int) {
         incOffset()
