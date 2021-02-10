@@ -3,10 +3,10 @@ class State {
     val cfgNode: CfgNode?
     public var condition: Condition? = null
 
-    constructor(otherStack: State, cfgNode: CfgNode?) : this(cfgNode) {
+    constructor(otherStack: State, cfgNode: CfgNode?, condition: Condition?) : this(cfgNode) {
         for (item in otherStack.items)
             items.add(item)
-        condition = otherStack.condition
+        this.condition = condition
     }
 
     constructor(cfgNode: CfgNode?) {

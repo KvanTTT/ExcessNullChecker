@@ -1,9 +1,9 @@
 package visitors
 
 import AnotherCondition
+import CfgLink
 import CfgLinkType
 import CfgNode
-import Condition
 import DataEntry
 import ExcessCheckMessage
 import Logger
@@ -229,16 +229,16 @@ class CodeAnalyzer(
             Opcodes.IFNULL,
             Opcodes.IFNONNULL -> {
                 val dataEntry = currentState.pop()
-                val checkType = if (p0 == Opcodes.IFNULL) NullType.NotNull else NullType.Null
+                val checkType = if (p0 == Opcodes.IFNULL) NullType.Null else NullType.NotNull
                 val dataEntryType = dataEntry.type
 
                 var conditionIsAlwaysTrue: Boolean? = null
                 if (dataEntryType.isDefined()) {
                     conditionIsAlwaysTrue =
-                        if (checkType == NullType.Null) dataEntryType == NullType.Null else dataEntryType == NullType.NotNull
+                        if (checkType == NullType.Null) dataEntryType == NullType.NotNull else dataEntryType == NullType.Null
                 }
                 else {
-                    // TODO: support of complex nexted return condtions
+                    // TODO: support of complex nested return conditions
                 }
 
                 val condition = if (conditionIsAlwaysTrue != null) {
@@ -259,7 +259,7 @@ class CodeAnalyzer(
 
         if (cfgNode != null && offset == cfgNode.end) {
             // Save state
-            cfgNodeStates[cfgNode] = State(currentState, cfgNode)
+            cfgNodeStates[cfgNode] = State(currentState, cfgNode, currentState.condition)
         }
 
         var resultState: State? = null
@@ -267,18 +267,33 @@ class CodeAnalyzer(
         val nextCfgNode = cfgNodes[offset]
         if (nextCfgNode != null) {
             // Restore state
+            var linksCount = 0
+            var firstState: State? = null
+            var firstLink: CfgLink? = null
             for (link in nextCfgNode.links) {
                 if (link.end == nextCfgNode) {
                     val prevState = cfgNodeStates[link.begin]
                     if (prevState != null) {
                         if (resultState == null) {
-                            resultState = State(prevState, nextCfgNode)
+                            firstLink = link
+                            firstState = prevState
+                            resultState = State(prevState, nextCfgNode, null)
                             currentState = resultState
                         }
                         else {
                             resultState.merge(prevState)
                         }
                     }
+                    linksCount++
+                }
+            }
+
+            // Set state of outer block after inner return statement
+            if (linksCount == 1 && resultState != null && firstState != null && firstLink != null) {
+                val condition = firstState.condition
+                if (condition is NullCheckCondition && condition.isDefined()) {
+                    resultState.set(condition.varIndex, DataEntry(condition.varIndex,
+                        if (firstLink.type == CfgLinkType.False) condition.nullType.invert() else condition.nullType))
                 }
             }
         }

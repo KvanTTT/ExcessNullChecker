@@ -1,8 +1,8 @@
 const val CfgReturnIndex = -1
 
 class CfgNode(val begin: Int) {
-    public var end: Int? = null
-    public val links: MutableList<CfgLink> = mutableListOf()
+    var end: Int? = null
+    val links: MutableList<CfgLink> = mutableListOf()
 
     override fun toString(): String {
         return if (begin != CfgReturnIndex) "$begin-$end" else "return"
