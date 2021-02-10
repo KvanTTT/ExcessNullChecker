@@ -201,10 +201,15 @@ class CodeAnalyzer(
 
     override fun visitTypeInsn(p0: Int, p1: String?) {
         checkState()
-        if (p0 == Opcodes.NEW) {
-            currentState.push(DataEntry(NullType.NotNull))
-        } else {
-            throwUnsupportedOpcode(p0)
+        when (p0) {
+            Opcodes.NEW,
+            Opcodes.NEWARRAY,
+            Opcodes.ANEWARRAY -> {
+                if (p0 != Opcodes.NEW)
+                    currentState.pop() // pop array length
+                currentState.push(DataEntry(NullType.NotNull))
+            }
+            else -> throwUnsupportedOpcode(p0)
         }
         incOffset()
     }
