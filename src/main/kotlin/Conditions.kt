@@ -12,16 +12,16 @@ class AnotherCondition(line: Int, val invert: Boolean = false): Condition(line) 
     }
 }
 
-class NullCheckCondition(line: Int, val varIndex: Int, val nullType: NullType): Condition(line) {
+class NullCheckCondition(line: Int, val name: String, val nullType: NullType): Condition(line) {
     override fun Invert(): Condition {
-        return NullCheckCondition(line, varIndex, nullType.invert())
+        return NullCheckCondition(line, name, nullType.invert())
     }
 
     override fun toString(): String {
-        return "x${if (varIndex != -1) varIndex else "?"} == $nullType"
+        return "x${if (isDefined(name)) name else "?"} == $nullType"
     }
 
     fun isDefined(): Boolean {
-        return varIndex >= 0 && nullType.isDefined()
+        return isDefined(name) && nullType.isDefined()
     }
 }

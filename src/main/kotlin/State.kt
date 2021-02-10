@@ -32,18 +32,27 @@ class State {
         return items[index]
     }
 
+    fun set(name: String, dataEntry: DataEntry) {
+        val index = name.toIntOrNull()
+        if (index != null) {
+            set(index, dataEntry)
+        } else {
+            // initialize temp field
+        }
+    }
+
     fun set(index: Int, dataEntry: DataEntry) {
         if (index == -1)
             return
 
         if (index >= items.size) {
             for (i in 0..index-items.size) {
-                items.add(DataEntry(Utils.UninitializedIndex, NullType.Uninitialized))
+                items.add(DataEntry(NullType.Uninitialized))
             }
         }
         items[index] = DataEntry(
-            if (dataEntry.index == Utils.UninitializedIndex) index else
-                dataEntry.index,
+            if (dataEntry.name == Uninitialized) index.toString() else
+                dataEntry.name,
             dataEntry.type)
     }
 

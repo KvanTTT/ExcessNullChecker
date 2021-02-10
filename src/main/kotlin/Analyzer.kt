@@ -18,7 +18,7 @@ class Analyzer(private val logger: Logger) {
         classReader.accept(cfgNodeCreator, 0)
         classReader.accept(CfgNodeInitializer(cfgNodeCreator.methodsCfg), 0)
 
-        val processedMethods = mutableMapOf<String, NullType>()
+        val processedMethods = mutableMapOf<String, DataEntry>()
 
         val staticConstructorAnalyzer = MethodAnalyzer(
             BypassType.StaticConstructor,

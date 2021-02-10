@@ -5,18 +5,20 @@ import CfgLink
 import CfgLinkType
 import CfgNode
 import DataEntry
+import Dirty
 import ExcessCheckMessage
 import Logger
 import NullCheckCondition
 import NullType
 import Signature
 import State
+import Uninitialized
 import jdk.internal.org.objectweb.asm.*
 
 class CodeAnalyzer(
     private val signature: Signature,
     private val finalFields: MutableMap<String, NullType>,
-    private val processedMethods: MutableMap<String, NullType>,
+    private val processedMethods: MutableMap<String, DataEntry>,
     private val methodsCfg: Map<String, Map<Int, CfgNode>>,
     private val classFileData: ByteArray,
     private val logger: Logger
@@ -64,7 +66,7 @@ class CodeAnalyzer(
         checkState()
         when (p0) {
             Opcodes.ACONST_NULL -> {
-                currentState.push(DataEntry(Utils.UninitializedIndex, NullType.Null))
+                currentState.push(DataEntry(NullType.Null))
             }
             Opcodes.ICONST_M1,
             Opcodes.ICONST_0,
@@ -80,7 +82,7 @@ class CodeAnalyzer(
             Opcodes.FCONST_2,
             Opcodes.DCONST_0,
             Opcodes.DCONST_1 -> {
-                currentState.push(DataEntry(Utils.UninitializedIndex, NullType.Mixed))
+                currentState.push(DataEntry(NullType.Mixed))
             }
             Opcodes.DUP -> {
                 currentState.push(currentState.peek())
@@ -91,12 +93,12 @@ class CodeAnalyzer(
             Opcodes.LRETURN,
             Opcodes.ARETURN,
             Opcodes.RETURN -> {
-                if (p0 != Opcodes.RETURN) {
-                    val currentDataEntry = currentState.pop()
-                    val methodReturnType = processedMethods[signature.fullName]
-                    if (methodReturnType != null)
-                        processedMethods[signature.fullName] = methodReturnType.merge(currentDataEntry.type)
-                }
+                val currentDataEntry =
+                    if (p0 != Opcodes.RETURN) currentState.pop() else DataEntry(Dirty, NullType.Mixed)
+
+                val methodReturnType = processedMethods[signature.fullName]
+                if (methodReturnType != null)
+                    processedMethods[signature.fullName] = methodReturnType.merge(currentDataEntry)
 
                 currentState.clear()
             }
@@ -109,7 +111,7 @@ class CodeAnalyzer(
         when (p0) {
             Opcodes.BIPUSH,
             Opcodes.SIPUSH -> {
-                currentState.push(DataEntry(Utils.UninitializedIndex, NullType.Mixed))
+                currentState.push(DataEntry(NullType.Mixed))
             }
         }
         incOffset()
@@ -117,14 +119,14 @@ class CodeAnalyzer(
 
     override fun visitLdcInsn(p0: Any?) {
         checkState()
-        currentState.push(DataEntry(Utils.UninitializedIndex, NullType.NotNull))
+        currentState.push(DataEntry(NullType.NotNull))
         incOffset()
     }
 
     override fun visitTypeInsn(p0: Int, p1: String?) {
         checkState()
         if (p0 == Opcodes.NEW) {
-            currentState.push(DataEntry(-1, NullType.NotNull))
+            currentState.push(DataEntry(NullType.NotNull))
         }
         incOffset()
     }
@@ -144,13 +146,13 @@ class CodeAnalyzer(
                 // a.getHashCode()
                 // if (a == null) // prevent excess check
                 val invocationDataEntry = currentState.pop()
-                currentState.set(invocationDataEntry.index, DataEntry(invocationDataEntry.index, NullType.NotNull))
+                currentState.set(invocationDataEntry.name, DataEntry(invocationDataEntry.name, NullType.NotNull))
             }
 
-            var returnType: NullType? = null
+            var returnDataEntry: DataEntry? = null
             if (methodsCfg.containsKey(signature.fullName)) {
-                returnType = processedMethods[signature.fullName]
-                if (returnType == null) {
+                returnDataEntry = processedMethods[signature.fullName]
+                if (returnDataEntry == null) {
                     // Recursive analysing...
                     val methodAnalyzer = MethodAnalyzer(
                         BypassType.All,
@@ -163,12 +165,12 @@ class CodeAnalyzer(
                     )
                     val classReader = ClassReader(classFileData)
                     classReader.accept(methodAnalyzer, 0)
-                    returnType = processedMethods[signature.fullName]
+                    returnDataEntry = processedMethods[signature.fullName]
                 }
             }
 
             if (!signature.isVoid) {
-                currentState.push(DataEntry(Utils.UninitializedIndex, returnType ?: NullType.Mixed))
+                currentState.push(DataEntry(Uninitialized, returnDataEntry?.type ?: NullType.Mixed))
             }
         }
         incOffset()
@@ -182,7 +184,7 @@ class CodeAnalyzer(
                 if (p0 == Opcodes.GETFIELD) {
                     currentState.pop()
                 }
-                currentState.push(DataEntry(Utils.UninitializedIndex, finalFields.getOrDefault(p2, NullType.Mixed)))
+                currentState.push(DataEntry(finalFields.getOrDefault(p2, NullType.Mixed)))
             }
             Opcodes.PUTSTATIC,
             Opcodes.PUTFIELD -> {
@@ -245,7 +247,7 @@ class CodeAnalyzer(
                     logger.log(ExcessCheckMessage(conditionIsAlwaysTrue, currentLine))
                     if (conditionIsAlwaysTrue) null else AnotherCondition(currentLine)
                 } else {
-                    NullCheckCondition(currentLine, dataEntry.index, checkType)
+                    NullCheckCondition(currentLine, dataEntry.name, checkType)
                 }
 
                 currentState.condition = condition
@@ -292,7 +294,7 @@ class CodeAnalyzer(
             if (linksCount == 1 && resultState != null && firstState != null && firstLink != null) {
                 val condition = firstState.condition
                 if (condition is NullCheckCondition && condition.isDefined()) {
-                    resultState.set(condition.varIndex, DataEntry(condition.varIndex,
+                    resultState.set(condition.name, DataEntry(condition.name,
                         if (firstLink.type == CfgLinkType.False) condition.nullType.invert() else condition.nullType))
                 }
             }

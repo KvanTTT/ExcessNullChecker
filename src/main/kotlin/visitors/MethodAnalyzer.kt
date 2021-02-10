@@ -1,8 +1,11 @@
 package visitors
 
 import CfgNode
+import DataEntry
+import Dirty
 import Logger
 import NullType
+import Uninitialized
 import jdk.internal.org.objectweb.asm.*
 
 enum class BypassType {
@@ -15,7 +18,7 @@ enum class BypassType {
 class MethodAnalyzer(
     private val bypassType: BypassType,
     private val finalFields: MutableMap<String, NullType>,
-    private val processedMethods: MutableMap<String, NullType>,
+    private val processedMethods: MutableMap<String, DataEntry>,
     private val methodsInfos: Map<String, Map<Int, CfgNode>>,
     private val methodToProcess: String? = null,
     private val classFileData: ByteArray,
@@ -43,7 +46,9 @@ class MethodAnalyzer(
         if (!processedMethods.contains(signature.fullName)) {
             val isFinalOrStatic =
                 p0 and (Opcodes.ACC_FINAL or Opcodes.ACC_STATIC) != 0 // Other methods may be overridden
-            processedMethods[signature.fullName] = if (isFinalOrStatic) NullType.Uninitialized else NullType.Mixed
+            processedMethods[signature.fullName] = if (isFinalOrStatic)
+                DataEntry(Uninitialized, NullType.Uninitialized) else
+                DataEntry(Dirty, NullType.Mixed)
             return CodeAnalyzer(
                 signature,
                 finalFields,
