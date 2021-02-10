@@ -57,4 +57,18 @@ public class MethodCalls {
     static Object callWithPassedParamHelper2(int x, Object param) {
         return x > 5 ? param : null;
     }
+
+    void recursionCall() {
+        Object x = recursionHelper(10);
+        if (x != null) { // Test: condition_is_always_true
+        }
+    }
+
+    static Object recursionHelper(int a) {
+        if (a >= 5) {
+            return recursionHelper(a - 5);
+        }
+
+        return new Object();
+    }
 }
