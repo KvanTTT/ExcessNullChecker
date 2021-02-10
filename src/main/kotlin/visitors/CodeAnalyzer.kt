@@ -142,8 +142,9 @@ class CodeAnalyzer(
         val signature = Signature.get(isStatic, p2, p3)
         if (p0 == Opcodes.INVOKEVIRTUAL || p0 == Opcodes.INVOKESPECIAL || p0 == Opcodes.INVOKESTATIC) {
             // Make virtual call and remove parameters from stack except of the first one
+            val params = mutableListOf<DataEntry>()
             for (i in 0 until signature.paramsCount) {
-                currentState.pop()
+                params.add(currentState.pop())
             }
 
             if (p0 != Opcodes.INVOKESTATIC) {
@@ -151,6 +152,7 @@ class CodeAnalyzer(
             }
 
             var returnDataEntry: DataEntry? = null
+            var returnType: NullType = NullType.Mixed
             if (methodsCfg.containsKey(signature.fullName)) {
                 returnDataEntry = processedMethods[signature.fullName]
                 if (returnDataEntry == null) {
@@ -169,10 +171,19 @@ class CodeAnalyzer(
                     classReader.accept(methodAnalyzer, 0)
                     returnDataEntry = processedMethods[signature.fullName]
                 }
+                returnType = returnDataEntry?.type ?: NullType.Mixed
+            }
+
+            // Try to link passed param with return value
+            if (returnDataEntry != null && returnType == NullType.Mixed) {
+                val linkedLocalVar = returnDataEntry.name.toIntOrNull() // Only local variables are relevant
+                if (linkedLocalVar != null) {
+                    returnType = params.getOrNull(linkedLocalVar)?.type ?: NullType.Mixed
+                }
             }
 
             if (!signature.isVoid) {
-                currentState.push(DataEntry(Uninitialized, returnDataEntry?.type ?: NullType.Mixed))
+                currentState.push(DataEntry(Uninitialized, returnType))
             }
         }
         incOffset()

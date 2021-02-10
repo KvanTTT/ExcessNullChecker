@@ -37,4 +37,24 @@ public class MethodCalls {
     public Object callInstanceHelper() {
         return new Object();
     }
+
+    static void callWithPassedParam() {
+        Object param = new Object();
+        if (callWithPassedParamHelper(param) != null) { // Test: condition_is_always_true
+        }
+    }
+
+    static Object callWithPassedParamHelper(Object param) {
+        return param;
+    }
+
+    static void callWithPassedParam2(int x) {
+        Object param = new Object();
+        if (callWithPassedParamHelper2(x, param) != null) {
+        }
+    }
+
+    static Object callWithPassedParamHelper2(int x, Object param) {
+        return x > 5 ? param : null;
+    }
 }
