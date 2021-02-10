@@ -1,11 +1,14 @@
 class State {
-    val items: MutableList<DataEntry> = mutableListOf()
+    val stack: MutableList<DataEntry> = mutableListOf()
+    val fields: MutableMap<String, DataEntry> = mutableMapOf()
     val cfgNode: CfgNode?
-    public var condition: Condition? = null
+    var condition: Condition? = null
 
-    constructor(otherStack: State, cfgNode: CfgNode?, condition: Condition?) : this(cfgNode) {
-        for (item in otherStack.items)
-            items.add(item)
+    constructor(anotherState: State, cfgNode: CfgNode?, condition: Condition?) : this(cfgNode) {
+        for (item in anotherState.stack)
+            stack.add(item)
+        for (field in anotherState.fields)
+            fields[field.key] = field.value
         this.condition = condition
     }
 
@@ -14,55 +17,72 @@ class State {
     }
 
     fun push(dataEntry: DataEntry) {
-        items.add(dataEntry)
+        stack.add(dataEntry)
     }
 
     fun pop(): DataEntry {
-        val lastInd = items.size - 1
-        val result = items[lastInd]
-        items.removeAt(lastInd)
+        val lastInd = stack.size - 1
+        val result = stack[lastInd]
+        stack.removeAt(lastInd)
         return result
     }
 
     fun peek(): DataEntry {
-        return items[items.size - 1]
+        return stack[stack.size - 1]
     }
 
     fun get(index: Int): DataEntry {
-        return items[index]
+        return stack[index]
+    }
+
+    fun getField(name: String): DataEntry? {
+        return fields[name]
     }
 
     fun set(name: String, dataEntry: DataEntry) {
         val index = name.toIntOrNull()
         if (index != null) {
             set(index, dataEntry)
-        } else {
-            // initialize temp field
+        } else if (isDefined(name)) {
+            setField(name, dataEntry)
         }
+    }
+
+    fun setField(name: String, dataEntry: DataEntry) {
+        fields[name] = DataEntry(
+            if (dataEntry.name == Uninitialized) name else
+                dataEntry.name,
+            dataEntry.type)
     }
 
     fun set(index: Int, dataEntry: DataEntry) {
         if (index == -1)
             return
 
-        if (index >= items.size) {
-            for (i in 0..index-items.size) {
-                items.add(DataEntry(NullType.Uninitialized))
+        if (index >= stack.size) {
+            for (i in 0..index-stack.size) {
+                stack.add(DataEntry(NullType.Uninitialized))
             }
         }
-        items[index] = DataEntry(
+        stack[index] = DataEntry(
             if (dataEntry.name == Uninitialized) index.toString() else
                 dataEntry.name,
             dataEntry.type)
     }
 
     fun clear() {
-        items.clear()
+        stack.clear()
     }
 
     fun merge(otherStack: State) {
-        for (i in 0 until minOf(items.size, otherStack.items.size)) {
-            items[i] = items[i].merge(otherStack.items[i])
+        for (i in 0 until minOf(stack.size, otherStack.stack.size)) {
+            stack[i] = stack[i].merge(otherStack.stack[i])
+        }
+        for (item in otherStack.fields) {
+            val field = fields[item.key]
+            if (field != null) {
+                fields[item.key] = field.merge(item.value)
+            }
         }
     }
 }

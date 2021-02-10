@@ -17,8 +17,9 @@ import jdk.internal.org.objectweb.asm.*
 
 class CodeAnalyzer(
     private val signature: Signature,
-    private val finalFields: MutableMap<String, NullType>,
+    private val fields: Map<String, FieldInfo>,
     private val processedMethods: MutableMap<String, DataEntry>,
+    private val processedFinalFields: MutableMap<String, NullType>,
     private val methodsCfg: Map<String, Map<Int, CfgNode>>,
     private val classFileData: ByteArray,
     private val logger: Logger
@@ -40,6 +41,10 @@ class CodeAnalyzer(
         for (i in 0 until signature.paramsCount) {
             // Initialize local variables from parameters
             currentState.push(DataEntry(i + offset, NullType.Mixed))
+        }
+        for (field in fields) {
+            val processedFinalField = processedFinalFields[field.key]
+            currentState.setField(field.key, DataEntry(field.key, processedFinalField ?: NullType.Mixed))
         }
     }
 
@@ -96,9 +101,9 @@ class CodeAnalyzer(
                 val currentDataEntry =
                     if (p0 != Opcodes.RETURN) currentState.pop() else DataEntry(Dirty, NullType.Mixed)
 
-                val methodReturnType = processedMethods[signature.fullName]
-                if (methodReturnType != null)
-                    processedMethods[signature.fullName] = methodReturnType.merge(currentDataEntry)
+                val methodReturnEntry = processedMethods[signature.fullName]
+                if (methodReturnEntry != null)
+                    processedMethods[signature.fullName] = methodReturnEntry.merge(currentDataEntry)
 
                 currentState.clear()
             }
@@ -142,11 +147,7 @@ class CodeAnalyzer(
             }
 
             if (p0 != Opcodes.INVOKESTATIC) {
-                // Mark variable as NotNull because instance is always necessary during invocation
-                // a.getHashCode()
-                // if (a == null) // prevent excess check
-                val invocationDataEntry = currentState.pop()
-                currentState.set(invocationDataEntry.name, DataEntry(invocationDataEntry.name, NullType.NotNull))
+                popAndSetNotNull()
             }
 
             var returnDataEntry: DataEntry? = null
@@ -156,8 +157,9 @@ class CodeAnalyzer(
                     // Recursive analysing...
                     val methodAnalyzer = MethodAnalyzer(
                         BypassType.All,
-                        finalFields,
+                        fields,
                         processedMethods,
+                        processedFinalFields,
                         methodsCfg,
                         signature.fullName,
                         classFileData,
@@ -182,23 +184,37 @@ class CodeAnalyzer(
             Opcodes.GETSTATIC,
             Opcodes.GETFIELD -> {
                 if (p0 == Opcodes.GETFIELD) {
-                    currentState.pop()
+                    popAndSetNotNull()
                 }
-                currentState.push(DataEntry(finalFields.getOrDefault(p2, NullType.Mixed)))
+                if (p2 != null) {
+                    val dataEntry = currentState.getField(p2)
+                    currentState.push(dataEntry ?: DataEntry(Dirty, NullType.Mixed))
+                }
             }
             Opcodes.PUTSTATIC,
             Opcodes.PUTFIELD -> {
-                val currentDataEntry = currentState.pop()
-                val currentFieldType = finalFields[p2]
-                if (p2 != null && currentFieldType != null) {
-                    finalFields[p2] = currentFieldType.merge(currentDataEntry.type)
+                val dataEntry = currentState.pop()
+                if (p2 != null) {
+                    currentState.set(p2, dataEntry)
+                    val finalField = processedFinalFields[p2]
+                    if (finalField != null) {
+                        processedFinalFields[p2] = finalField.merge(dataEntry.type)
+                    }
                 }
                 if (p0 == Opcodes.PUTFIELD) {
-                    currentState.pop()
+                    popAndSetNotNull()
                 }
             }
         }
         incOffset()
+    }
+
+    private fun popAndSetNotNull() {
+        // Mark variable as NotNull because instance is always necessary during invocation
+        // a.getHashCode()
+        // if (a == null) // prevent excess check
+        val instance = currentState.pop()
+        currentState.set(instance.name, DataEntry(instance.name, NullType.NotNull))
     }
 
     override fun visitJumpInsn(p0: Int, p1: Label?) {

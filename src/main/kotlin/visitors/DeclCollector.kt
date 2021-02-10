@@ -1,16 +1,16 @@
 package visitors
 
-import NullType
 import jdk.internal.org.objectweb.asm.*
 
+class FieldInfo(val name: String, val isFinal: Boolean)
+
 class DeclCollector : ClassVisitor(Opcodes.ASM5) {
-    var finalFields: MutableMap<String, NullType> = mutableMapOf()
+    var fields: MutableMap<String, FieldInfo> = mutableMapOf()
 
     override fun visitField(p0: Int, p1: String?, p2: String?, p3: String?, p4: Any?): FieldVisitor {
-        val isFinal = (p0 and Opcodes.ACC_FINAL) == Opcodes.ACC_FINAL
-        if (isFinal && p1 != null) {
-            // Consider only final fields
-            finalFields[p1] = NullType.Uninitialized
+        if (p1 != null) {
+            val isFinal = (p0 and Opcodes.ACC_FINAL) == Opcodes.ACC_FINAL
+            fields[p1] = FieldInfo(p1, isFinal)
         }
         return EmptyFieldVisitor.instance
     }

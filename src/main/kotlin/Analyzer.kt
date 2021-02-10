@@ -1,5 +1,4 @@
 import jdk.internal.org.objectweb.asm.ClassReader
-import jdk.internal.org.objectweb.asm.Opcodes
 import visitors.*
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -19,11 +18,16 @@ class Analyzer(private val logger: Logger) {
         classReader.accept(CfgNodeInitializer(cfgNodeCreator.methodsCfg), 0)
 
         val processedMethods = mutableMapOf<String, DataEntry>()
+        val processedFinalFields = mutableMapOf<String, NullType>()
+        for (item in declCollector.fields)
+            if (item.value.isFinal)
+                processedFinalFields[item.key] = NullType.Uninitialized
 
         val staticConstructorAnalyzer = MethodAnalyzer(
             BypassType.StaticConstructor,
-            declCollector.finalFields,
+            declCollector.fields,
             processedMethods,
+            processedFinalFields,
             cfgNodeCreator.methodsCfg,
             null,
             bytes,
@@ -33,8 +37,9 @@ class Analyzer(private val logger: Logger) {
 
         val constructorAnalyzer = MethodAnalyzer(
             BypassType.Constructors,
-            declCollector.finalFields,
+            declCollector.fields,
             processedMethods,
+            processedFinalFields,
             cfgNodeCreator.methodsCfg,
             null,
             bytes,
@@ -44,8 +49,9 @@ class Analyzer(private val logger: Logger) {
 
         val methodAnalyzer = MethodAnalyzer(
             BypassType.Methods,
-            declCollector.finalFields,
+            declCollector.fields,
             processedMethods,
+            processedFinalFields,
             cfgNodeCreator.methodsCfg,
             null,
             bytes,

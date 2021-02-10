@@ -44,4 +44,30 @@ public class Fields {
         if (c == null) { // Test: condition_is_always_false (IDEA fails here)
         }
     }
+
+    private static Object staticField;
+    private Object instanceField;
+
+    public static void fieldReassignmentInLocalScope() {
+        staticField = new Object();
+        if (staticField != null) { // Test: condition_is_always_true
+        }
+    }
+
+    public static void fieldNoReassignmentInLocalScope() {
+        if (staticField != null) {
+        }
+    }
+
+    public void instanceFieldUse(Fields test) {
+        Object x = test.instanceField;
+        if (test != null) { // Test: condition_is_always_true
+        }
+    }
+
+    public void instanceFieldDef(Fields test) {
+        test.instanceField = new Object();
+        if (test != null) { // Test: condition_is_always_true
+        }
+    }
 }

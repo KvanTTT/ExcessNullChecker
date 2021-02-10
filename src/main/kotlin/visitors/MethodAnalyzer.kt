@@ -17,8 +17,9 @@ enum class BypassType {
 
 class MethodAnalyzer(
     private val bypassType: BypassType,
-    private val finalFields: MutableMap<String, NullType>,
+    private val fields: Map<String, FieldInfo>,
     private val processedMethods: MutableMap<String, DataEntry>,
+    private val processedFinalFields: MutableMap<String, NullType>,
     private val methodsInfos: Map<String, Map<Int, CfgNode>>,
     private val methodToProcess: String? = null,
     private val classFileData: ByteArray,
@@ -51,8 +52,9 @@ class MethodAnalyzer(
                 DataEntry(Dirty, NullType.Mixed)
             return CodeAnalyzer(
                 signature,
-                finalFields,
+                fields,
                 processedMethods,
+                processedFinalFields,
                 methodsInfos,
                 classFileData,
                 logger
