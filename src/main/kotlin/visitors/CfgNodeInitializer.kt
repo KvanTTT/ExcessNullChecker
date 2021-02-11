@@ -58,13 +58,14 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
             Opcodes.FRETURN,
             Opcodes.LRETURN,
             Opcodes.ARETURN,
-            Opcodes.RETURN -> {
+            Opcodes.RETURN,
+            Opcodes.ATHROW -> {
                 val cfgNode = currentCfgNode
                 val returnCfgNode = cfg[CfgReturnIndex]
                 if (cfgNode != null && returnCfgNode != null) {
                     addLink(cfgNode, returnCfgNode, CfgLinkType.Epsilon)
-                    nextLinkType = null
                 }
+                nextLinkType = null
             }
         }
     }

@@ -47,6 +47,11 @@ class ExcessNullCheckerTest {
     }
 
     @Test
+    fun exceptions() {
+        testFile("Exceptions")
+    }
+
+    @Test
     fun misc() {
         testFile("Misc")
     }

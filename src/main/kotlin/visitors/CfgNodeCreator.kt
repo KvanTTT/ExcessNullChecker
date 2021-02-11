@@ -2,10 +2,7 @@ package visitors
 
 import CfgNode
 import CfgReturnIndex
-import jdk.internal.org.objectweb.asm.ClassVisitor
-import jdk.internal.org.objectweb.asm.Label
-import jdk.internal.org.objectweb.asm.MethodVisitor
-import jdk.internal.org.objectweb.asm.Opcodes
+import jdk.internal.org.objectweb.asm.*
 
 class CfgNodeCreator: ClassVisitor( Opcodes.ASM5) {
     val methodsCfg: MutableMap<String, MutableMap<Int, CfgNode>> = mutableMapOf()
@@ -63,15 +60,15 @@ class CfgNodeCreatorHelper(
         incOffset()
     }
 
+    override fun visitLabel(p0: Label?) {
+        methodCfg[offset] = CfgNode(offset)
+    }
+
     private fun createCfgNode() {
         if (markNextInstruction) {
             methodCfg[offset] = CfgNode(offset)
             markNextInstruction = false
         }
         incOffset()
-    }
-
-    override fun visitLabel(p0: Label?) {
-        methodCfg[offset] = CfgNode(offset)
     }
 }

@@ -113,6 +113,11 @@ class CodeAnalyzer(
 
                 currentState.clear()
             }
+            Opcodes.ATHROW -> {
+                val objectRef = currentState.pop()
+                currentState.clear()
+                currentState.push(objectRef)
+            }
             Opcodes.IADD,
             Opcodes.LADD,
             Opcodes.FADD,
