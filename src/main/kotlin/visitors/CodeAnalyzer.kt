@@ -6,6 +6,7 @@ import CfgLinkType
 import CfgNode
 import DataEntry
 import Dirty
+import EmptyCondition
 import ExcessCheckMessage
 import Logger
 import NullCheckCondition
@@ -326,7 +327,7 @@ class CodeAnalyzer(
                 currentState.condition = AnotherCondition(currentLine)
             }
             Opcodes.GOTO -> {
-                currentState.condition = null
+                currentState.condition = EmptyCondition(currentLine)
             }
             Opcodes.IFNULL,
             Opcodes.IFNONNULL -> {
@@ -375,6 +376,8 @@ class CodeAnalyzer(
 
         if (cfgNode != null && offset == cfgNode.end) {
             // Save state
+            if (currentState.condition == null)
+                currentState.condition = EmptyCondition(currentLine)
             cfgNodeStates[cfgNode] = State(currentState, cfgNode, currentState.condition)
         }
 
