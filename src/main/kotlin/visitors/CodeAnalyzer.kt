@@ -404,7 +404,7 @@ class CodeAnalyzer(
             }
 
             if (resultState == null) {
-                throw Exception("resultState should be initialized here")
+                throw Exception("resultState should be initialized")
             }
 
             // Set state of outer block after inner return statement

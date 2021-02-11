@@ -77,7 +77,7 @@ class ExcessNullCheckerTest {
 
         val outputDir = Paths.get("build", "test-results").toString()
         val testLogger = TestLogger(expectedMessages)
-        Analyzer(testLogger).runOnJavaFile(File(fullJavaFilePath))
+        Analyzer(testLogger).runOnJavaFile(File(fullJavaFilePath), false)
 
         if (testLogger.notFoundMessages.size > 0) {
             fail("Not found: ${testLogger.notFoundMessages.first()}")

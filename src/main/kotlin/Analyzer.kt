@@ -4,13 +4,13 @@ import java.io.File
 import java.lang.Exception
 
 class Analyzer(private val logger: Logger) {
-    fun runOnJavaFile(javaFile: File, tempDir: String? = null) {
+    fun runOnJavaFile(javaFile: File, removeClassFile: Boolean) {
         // TODO: support of temp dir
         logger.info("Compile ${javaFile.absoluteFile}...")
 
         try {
             val process = Runtime.getRuntime().exec("javac ${javaFile.absolutePath}")
-            val result = process.waitFor()
+            val result = process.waitFor() // TODO: fix hanging for large files
             if (result != 0) {
                 val errorStream = process.errorStream
                 val errorMessage = StringBuilder()
@@ -26,7 +26,11 @@ class Analyzer(private val logger: Logger) {
         }
 
         // TODO: consider nested classes
-        runOnClassFile(File(getFileWithoutExtension(javaFile.absolutePath) + ".class"))
+        val classFile = File(getFileWithoutExtension(javaFile.absolutePath) + ".class")
+        runOnClassFile(classFile)
+
+        if (removeClassFile)
+            classFile.delete()
     }
 
     fun runOnClassFile(classFile: File) {
