@@ -35,7 +35,7 @@ class State {
         val index = name.toIntOrNull()
         if (index != null) {
             return get(index)
-        } else if (isDefined(name)) {
+        } else if (isNullOrNotNull(name)) {
             return getField(name)
         }
         return null
@@ -53,7 +53,7 @@ class State {
         val index = name.toIntOrNull()
         if (index != null) {
             set(index, dataEntry)
-        } else if (isDefined(name)) {
+        } else if (isNullOrNotNull(name)) {
             setField(name, dataEntry)
         }
     }
@@ -71,7 +71,7 @@ class State {
 
         if (index >= stack.size) {
             for (i in 0..index-stack.size) {
-                stack.add(DataEntry(NullType.Uninitialized))
+                stack.add(DataEntry(DataEntryType.Uninitialized))
             }
         }
         stack[index] = DataEntry(

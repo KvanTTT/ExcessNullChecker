@@ -9,7 +9,7 @@ import EmptyCondition
 import ExcessCheckMessage
 import Logger
 import NullCheckCondition
-import NullType
+import DataEntryType
 import Signature
 import State
 import jdk.internal.org.objectweb.asm.*
@@ -19,7 +19,7 @@ class CodeAnalyzer(
     private val signature: Signature,
     private val fields: Map<String, FieldInfo>,
     private val processedMethods: MutableMap<String, DataEntry>,
-    private val processedFinalFields: MutableMap<String, NullType>,
+    private val processedFinalFields: MutableMap<String, DataEntryType>,
     private val methodsCfg: Map<String, Map<Int, CfgNode>>,
     private val classFileData: ByteArray,
     private val logger: Logger
@@ -35,15 +35,15 @@ class CodeAnalyzer(
         if (!signature.static) {
             // First data entry is always not null for instance methods
             offset = 1
-            currentState.push(DataEntry(0, NullType.NotNull))
+            currentState.push(DataEntry(0, DataEntryType.NotNull))
         }
         for (i in 0 until signature.paramsCount) {
             // Initialize local variables from parameters
-            currentState.push(DataEntry(i + offset, NullType.Mixed))
+            currentState.push(DataEntry(i + offset, DataEntryType.Other))
         }
         for (field in fields) {
             val processedFinalField = processedFinalFields[field.key]
-            currentState.setField(field.key, DataEntry(field.key, processedFinalField ?: NullType.Mixed))
+            currentState.setField(field.key, DataEntry(field.key, processedFinalField ?: DataEntryType.Other))
         }
     }
 
@@ -54,7 +54,7 @@ class CodeAnalyzer(
             Opcodes.LLOAD,
             Opcodes.FLOAD,
             Opcodes.DLOAD -> {
-                currentState.push(DataEntry(p1, NullType.Mixed))
+                currentState.push(DataEntry(p1, DataEntryType.Other))
             }
             Opcodes.ALOAD -> currentState.push(currentState.get(p1))
 
@@ -62,7 +62,7 @@ class CodeAnalyzer(
             Opcodes.LSTORE,
             Opcodes.FSTORE,
             Opcodes.DSTORE -> {
-                currentState.set(p1, DataEntry(NullType.Mixed))
+                currentState.set(p1, DataEntry(DataEntryType.Other))
             }
             Opcodes.ASTORE -> {
                 currentState.set(p1, currentState.pop())
@@ -77,7 +77,7 @@ class CodeAnalyzer(
         checkState()
         when (p0) {
             Opcodes.ACONST_NULL -> {
-                currentState.push(DataEntry(NullType.Null))
+                currentState.push(DataEntry(DataEntryType.Null))
             }
             Opcodes.ICONST_M1,
             Opcodes.ICONST_0,
@@ -93,7 +93,7 @@ class CodeAnalyzer(
             Opcodes.FCONST_2,
             Opcodes.DCONST_0,
             Opcodes.DCONST_1 -> {
-                currentState.push(DataEntry(NullType.Mixed))
+                currentState.push(DataEntry(DataEntryType.Other))
             }
             Opcodes.DUP -> {
                 currentState.push(currentState.peek())
@@ -105,7 +105,7 @@ class CodeAnalyzer(
             Opcodes.ARETURN,
             Opcodes.RETURN -> {
                 val currentDataEntry =
-                    if (p0 != Opcodes.RETURN) currentState.pop() else DataEntry(Dirty, NullType.Mixed)
+                    if (p0 != Opcodes.RETURN) currentState.pop() else DataEntry(Dirty, DataEntryType.Other)
 
                 val methodReturnEntry = processedMethods[signature.fullName]
                 if (methodReturnEntry != null)
@@ -151,7 +151,7 @@ class CodeAnalyzer(
             Opcodes.DCMPG -> {
                 currentState.pop()
                 currentState.pop()
-                currentState.push(DataEntry(NullType.Mixed))
+                currentState.push(DataEntry(DataEntryType.Other))
             }
             Opcodes.INEG,
             Opcodes.LNEG,
@@ -173,7 +173,7 @@ class CodeAnalyzer(
             Opcodes.I2C,
             Opcodes.I2S -> {
                 currentState.pop()
-                currentState.push(DataEntry(NullType.Mixed))
+                currentState.push(DataEntry(DataEntryType.Other))
             }
             else -> throwUnsupportedOpcode(p0)
         }
@@ -185,7 +185,7 @@ class CodeAnalyzer(
         when (p0) {
             Opcodes.BIPUSH,
             Opcodes.SIPUSH -> {
-                currentState.push(DataEntry(NullType.Mixed))
+                currentState.push(DataEntry(DataEntryType.Other))
             }
             else -> throwUnsupportedOpcode(p0)
         }
@@ -194,7 +194,7 @@ class CodeAnalyzer(
 
     override fun visitLdcInsn(p0: Any?) {
         checkState()
-        currentState.push(DataEntry(NullType.NotNull))
+        currentState.push(DataEntry(DataEntryType.NotNull))
         incOffset()
     }
 
@@ -206,7 +206,7 @@ class CodeAnalyzer(
             Opcodes.ANEWARRAY -> {
                 if (p0 != Opcodes.NEW)
                     currentState.pop() // pop array length
-                currentState.push(DataEntry(NullType.NotNull))
+                currentState.push(DataEntry(DataEntryType.NotNull))
             }
             else -> throwUnsupportedOpcode(p0)
         }
@@ -229,7 +229,7 @@ class CodeAnalyzer(
             }
 
             var returnDataEntry: DataEntry? = null
-            var returnType: NullType = NullType.Mixed
+            var returnType: DataEntryType = DataEntryType.Other
             if (methodsCfg.containsKey(signature.fullName)) {
                 returnDataEntry = processedMethods[signature.fullName]
                 if (returnDataEntry == null) {
@@ -248,14 +248,14 @@ class CodeAnalyzer(
                     classReader.accept(methodAnalyzer, 0)
                     returnDataEntry = processedMethods[signature.fullName]
                 }
-                returnType = returnDataEntry?.type ?: NullType.Mixed
+                returnType = returnDataEntry?.type ?: DataEntryType.Other
             }
 
             // Try to link passed param with return value
-            if (returnDataEntry != null && returnType == NullType.Mixed) {
+            if (returnDataEntry != null && returnType == DataEntryType.Other) {
                 val linkedLocalVar = returnDataEntry.name.toIntOrNull() // Only local variables are relevant
                 if (linkedLocalVar != null) {
-                    returnType = params.getOrNull(linkedLocalVar)?.type ?: NullType.Mixed
+                    returnType = params.getOrNull(linkedLocalVar)?.type ?: DataEntryType.Other
                 }
             }
 
@@ -278,7 +278,7 @@ class CodeAnalyzer(
                 }
                 if (p2 != null) {
                     val dataEntry = currentState.getField(p2)
-                    currentState.push(dataEntry ?: DataEntry(Dirty, NullType.Mixed))
+                    currentState.push(dataEntry ?: DataEntry(Dirty, DataEntryType.Other))
                 }
             }
             Opcodes.PUTSTATIC,
@@ -330,13 +330,13 @@ class CodeAnalyzer(
             Opcodes.IFNULL,
             Opcodes.IFNONNULL -> {
                 val dataEntry = currentState.pop()
-                val checkType = if (p0 == Opcodes.IFNULL) NullType.Null else NullType.NotNull
+                val checkType = if (p0 == Opcodes.IFNULL) DataEntryType.Null else DataEntryType.NotNull
                 val dataEntryType = dataEntry.type
 
                 var conditionIsAlwaysTrue: Boolean? = null
-                if (dataEntryType.isDefined()) {
+                if (dataEntryType.isNullOrNotNull()) {
                     conditionIsAlwaysTrue =
-                        if (checkType == NullType.Null) dataEntryType == NullType.NotNull else dataEntryType == NullType.Null
+                        if (checkType == DataEntryType.Null) dataEntryType == DataEntryType.NotNull else dataEntryType == DataEntryType.Null
                 }
                 else {
                     // TODO: support of complex nested return conditions
@@ -366,7 +366,7 @@ class CodeAnalyzer(
         // a.getHashCode()
         // if (a == null) // prevent excess check
         val instance = currentState.pop()
-        currentState.set(instance.name, DataEntry(instance.name, NullType.NotNull))
+        currentState.set(instance.name, DataEntry(instance.name, DataEntryType.NotNull))
     }
 
     private fun checkState() {
@@ -408,7 +408,7 @@ class CodeAnalyzer(
                 val condition = cfgNodeStates[link.begin]?.condition
                 if (condition is NullCheckCondition && condition.isDefined()) {
                     resultState.set(condition.name, DataEntry(condition.name,
-                        if (link.type == CfgLinkType.False) condition.nullType.invert() else condition.nullType))
+                        if (link.type == CfgLinkType.False) condition.dataEntryType.invert() else condition.dataEntryType))
                 }
             }
             else if (parentLinks.size == 2) {
@@ -434,15 +434,15 @@ class CodeAnalyzer(
                 if (varCheckCondition != null && varAssignState != null) {
                     val dataEntry = varAssignState.get(varCheckCondition.name)
                     if (dataEntry?.name == varCheckCondition.name) {
-                        var finalNullType: NullType = NullType.Mixed
-                        if (dataEntry.type == NullType.Null && varCheckCondition.nullType == NullType.Null) {
-                            finalNullType = NullType.Null
-                        } else if (dataEntry.type == NullType.NotNull && varCheckCondition.nullType == NullType.NotNull) {
-                            finalNullType = NullType.NotNull
+                        var finalDataEntryType: DataEntryType = DataEntryType.Other
+                        if (dataEntry.type == DataEntryType.Null && varCheckCondition.dataEntryType == DataEntryType.Null) {
+                            finalDataEntryType = DataEntryType.Null
+                        } else if (dataEntry.type == DataEntryType.NotNull && varCheckCondition.dataEntryType == DataEntryType.NotNull) {
+                            finalDataEntryType = DataEntryType.NotNull
                         }
 
-                        if (finalNullType.isDefined()) {
-                            resultState.set(dataEntry.name, DataEntry(dataEntry.name, finalNullType))
+                        if (finalDataEntryType.isNullOrNotNull()) {
+                            resultState.set(dataEntry.name, DataEntry(dataEntry.name, finalDataEntryType))
                         }
                     }
                 }

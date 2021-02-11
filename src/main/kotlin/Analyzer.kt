@@ -18,10 +18,10 @@ class Analyzer(private val logger: Logger) {
         classReader.accept(CfgNodeInitializer(cfgNodeCreator.methodsCfg), 0)
 
         val processedMethods = mutableMapOf<String, DataEntry>()
-        val processedFinalFields = mutableMapOf<String, NullType>()
+        val processedFinalFields = mutableMapOf<String, DataEntryType>()
         for (item in declCollector.fields)
             if (item.value.isFinal)
-                processedFinalFields[item.key] = NullType.Uninitialized
+                processedFinalFields[item.key] = DataEntryType.Uninitialized
 
         val staticConstructorAnalyzer = MethodAnalyzer(
             BypassType.StaticConstructor,
