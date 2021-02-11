@@ -4,6 +4,10 @@ class CfgNode(val begin: Int) {
     var end: Int? = null
     val links: MutableList<CfgLink> = mutableListOf()
 
+    fun getParentLinks(): List<CfgLink> {
+        return links.filter { link -> link.end == this }
+    }
+
     override fun toString(): String {
         return if (begin != CfgReturnIndex) "$begin-$end" else "return"
     }

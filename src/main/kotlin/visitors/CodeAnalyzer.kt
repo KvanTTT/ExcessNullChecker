@@ -1,7 +1,6 @@
 package visitors
 
 import AnotherCondition
-import CfgLink
 import CfgLinkType
 import CfgNode
 import DataEntry
@@ -14,7 +13,6 @@ import NullType
 import Signature
 import State
 import jdk.internal.org.objectweb.asm.*
-import java.lang.UnsupportedOperationException
 import Uninitialized
 
 class CodeAnalyzer(
@@ -381,37 +379,72 @@ class CodeAnalyzer(
             cfgNodeStates[cfgNode] = State(currentState, cfgNode, currentState.condition)
         }
 
-        var resultState: State? = null
-
         val nextCfgNode = cfgNodes[offset]
-        if (nextCfgNode != null) {
+        if (nextCfgNode != null && offset > 0) {
             // Restore state
-            var linksCount = 0
-            var firstState: State? = null
-            var firstLink: CfgLink? = null
 
-            val actualLinks = nextCfgNode.links.filter { link -> link.end == nextCfgNode }
-            for (link in actualLinks) {
+            var resultState: State? = null
+
+            val parentLinks = nextCfgNode.getParentLinks()
+            for (link in parentLinks) {
                 val prevState = cfgNodeStates[link.begin]
                 if (prevState != null) {
                     if (resultState == null) {
-                        firstLink = link
-                        firstState = prevState
                         resultState = State(prevState, nextCfgNode, null)
                         currentState = resultState
                     } else {
                         resultState.merge(prevState)
                     }
                 }
-                linksCount++
+            }
+
+            if (resultState == null) {
+                throw Exception("resultState should be initialized here")
             }
 
             // Set state of outer block after inner return statement
-            if (linksCount == 1 && resultState != null && firstState != null && firstLink != null) {
-                val condition = firstState.condition
+            if (parentLinks.size == 1) {
+                val link = parentLinks[0]
+                val condition = cfgNodeStates[link.begin]?.condition
                 if (condition is NullCheckCondition && condition.isDefined()) {
                     resultState.set(condition.name, DataEntry(condition.name,
-                        if (firstLink.type == CfgLinkType.False) condition.nullType.invert() else condition.nullType))
+                        if (link.type == CfgLinkType.False) condition.nullType.invert() else condition.nullType))
+                }
+            }
+            else if (parentLinks.size == 2) {
+                // Check the following:
+                // if (a == null)
+                //     a = new Object();
+                // if (a == null) { // Test: condition_is_always_false
+                // }
+
+                val firstState = cfgNodeStates[parentLinks[0].begin]
+                val secondState = cfgNodeStates[parentLinks[1].begin]
+                val firstCondition = firstState?.condition
+                val secondCondition = secondState?.condition
+                var varCheckCondition: NullCheckCondition? = null
+                var varAssignState: State? = null
+                if (firstCondition is NullCheckCondition && firstCondition.isDefined() && secondCondition is EmptyCondition) {
+                    varCheckCondition = firstCondition
+                    varAssignState = secondState
+                } else if (secondCondition is NullCheckCondition && secondCondition.isDefined() && firstCondition is EmptyCondition) {
+                    varCheckCondition = secondCondition
+                    varAssignState = firstState
+                }
+                if (varCheckCondition != null && varAssignState != null) {
+                    val dataEntry = varAssignState.get(varCheckCondition.name)
+                    if (dataEntry?.name == varCheckCondition.name) {
+                        var finalNullType: NullType = NullType.Mixed
+                        if (dataEntry.type == NullType.Null && varCheckCondition.nullType == NullType.Null) {
+                            finalNullType = NullType.Null
+                        } else if (dataEntry.type == NullType.NotNull && varCheckCondition.nullType == NullType.NotNull) {
+                            finalNullType = NullType.NotNull
+                        }
+
+                        if (finalNullType.isDefined()) {
+                            resultState.set(dataEntry.name, DataEntry(dataEntry.name, finalNullType))
+                        }
+                    }
                 }
             }
         }

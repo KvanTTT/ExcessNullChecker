@@ -31,6 +31,16 @@ class State {
         return stack[stack.size - 1]
     }
 
+    fun get(name: String): DataEntry? {
+        val index = name.toIntOrNull()
+        if (index != null) {
+            return get(index)
+        } else if (isDefined(name)) {
+            return getField(name)
+        }
+        return null
+    }
+
     fun get(index: Int): DataEntry {
         return stack[index]
     }

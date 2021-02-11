@@ -27,4 +27,23 @@ public class Misc {
         if (a != null) { // Test: condition_is_always_true
         }
     }
+
+    static void checkAndReassign(Object a, Object b, Object c) {
+        if (a == null) {
+            a = new Object();
+        }
+        if (a == null) { // Test: condition_is_always_false
+        }
+
+        if (b != null)
+            b = null;
+        if (b == null) { // Test: condition_is_always_true
+        }
+
+        if (c == null) {
+            c = null;
+        }
+        if (c == null) { // Not always null
+        }
+    }
 }
