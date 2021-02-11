@@ -1,3 +1,7 @@
 interface Logger {
-    fun log(message: Message)
+    fun info(message: Message)
+
+    fun info(message: String)
+
+    fun error(message: String)
 }

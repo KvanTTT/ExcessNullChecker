@@ -1,18 +1,22 @@
+import java.io.File
+
 fun main(args: Array<String>) {
-    val fileName = args[0]
-    val classFileName = getBaseName(fileName) + ".class"
+    val logger = ConsoleLogger()
 
-    println("Excess null checking of $fileName...")
-    val result = Runtime.getRuntime().exec("javac $fileName").waitFor()
-    if (result != 0) {
-        println("Invalid $fileName file")
-        return
+    val file = File(args[0])
+    val analyzer = Analyzer(logger)
+    when (file.extension) {
+        "java" -> analyzer.runOnJavaFile(file)
+        "class" -> analyzer.runOnClassFile(file)
+        else -> {
+            logger.error("Unsupported file ${file.absolutePath}")
+        }
     }
-
-    Analyzer(ConsoleLogger()).run(classFileName)
 }
 
-fun getBaseName(fileName: String): String {
+data class FileNameAndExtension(val fileName: String, val extension: String)
+
+fun getFileWithoutExtension(fileName: String): String {
     val index = fileName.lastIndexOf('.')
     return if (index == -1) {
         fileName

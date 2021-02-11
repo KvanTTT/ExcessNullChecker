@@ -1,5 +1,16 @@
 class ConsoleLogger : Logger {
-    override fun log(message: Message) {
+    val ANSI_RESET = "\u001B[0m"
+    val ANSI_RED = "\u001B[31m"
+
+    override fun info(message: Message) {
         println(message)
+    }
+
+    override fun info(message: String) {
+        println(message)
+    }
+
+    override fun error(message: String) {
+        println(ANSI_RED + message + ANSI_RESET)
     }
 }

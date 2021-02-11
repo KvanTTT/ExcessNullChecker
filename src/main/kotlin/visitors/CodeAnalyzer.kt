@@ -343,7 +343,7 @@ class CodeAnalyzer(
                 }
 
                 val condition = if (conditionIsAlwaysTrue != null) {
-                    logger.log(ExcessCheckMessage(conditionIsAlwaysTrue, currentLine))
+                    logger.info(ExcessCheckMessage(conditionIsAlwaysTrue, currentLine))
                     if (conditionIsAlwaysTrue) null else AnotherCondition(currentLine)
                 } else {
                     NullCheckCondition(currentLine, dataEntry.name, checkType)
@@ -448,9 +448,5 @@ class CodeAnalyzer(
                 }
             }
         }
-    }
-
-    private fun throwUnsupportedOpcode(opcode: Int) {
-        throw UnsupportedOperationException("Opcode $opcode is not supported")
     }
 }

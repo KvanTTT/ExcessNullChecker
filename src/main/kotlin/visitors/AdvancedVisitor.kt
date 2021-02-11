@@ -55,4 +55,8 @@ open class AdvancedVisitor : MethodVisitor(Opcodes.ASM5) {
     protected fun incOffset() {
         _offset++
     }
+
+    protected fun throwUnsupportedOpcode(opcode: Int) {
+        throw UnsupportedOperationException("Opcode $opcode is not supported")
+    }
 }

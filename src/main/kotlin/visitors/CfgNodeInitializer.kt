@@ -97,6 +97,7 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
                 cfgLinkType = CfgLinkType.Epsilon
                 nextLinkType = null
             }
+            else -> throwUnsupportedOpcode(p0)
         }
 
         val cfgNode = currentCfgNode

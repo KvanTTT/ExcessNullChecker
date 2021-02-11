@@ -71,15 +71,8 @@ class ExcessNullCheckerTest {
         }
 
         val outputDir = Paths.get("build", "test-results").toString()
-        val result = Runtime.getRuntime().exec("javac -d $outputDir $fullJavaFilePath").waitFor()
-        if (result != 0) {
-            fail("Unable to compile $fullJavaFilePath")
-        }
-
-        val classFileName = Paths.get(outputDir, "test", "$fileName.class").toString()
         val testLogger = TestLogger(expectedMessages)
-
-        Analyzer(testLogger).run(classFileName)
+        Analyzer(testLogger).runOnJavaFile(File(fullJavaFilePath))
 
         if (testLogger.notFoundMessages.size > 0) {
             fail("Not found: ${testLogger.notFoundMessages.first()}")

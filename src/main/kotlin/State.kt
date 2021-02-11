@@ -1,6 +1,8 @@
+import java.lang.Exception
+
 class State {
-    val stack: MutableList<DataEntry> = mutableListOf()
-    val fields: MutableMap<String, DataEntry> = mutableMapOf()
+    private val stack: MutableList<DataEntry> = mutableListOf()
+    private val fields: MutableMap<String, DataEntry> = mutableMapOf()
     val cfgNode: CfgNode?
     var condition: Condition? = null
 
@@ -85,7 +87,13 @@ class State {
     }
 
     fun merge(otherStack: State) {
-        for (i in 0 until minOf(stack.size, otherStack.stack.size)) {
+        if (stack.size != otherStack.stack.size)
+            throw Exception("Stack sizes must be equal")
+
+        if (fields.size != otherStack.fields.size)
+            throw Exception("Number of fields must be equal")
+
+        for (i in 0 until stack.size) {
             stack[i] = stack[i].merge(otherStack.stack[i])
         }
         for (item in otherStack.fields) {
