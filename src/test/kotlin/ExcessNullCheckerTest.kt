@@ -32,11 +32,6 @@ class ExcessNullCheckerTest {
     }
 
     @Test
-    fun test6() {
-        testFile("Example6")
-    }
-
-    @Test
     fun fields() {
         testFile("Fields")
     }
