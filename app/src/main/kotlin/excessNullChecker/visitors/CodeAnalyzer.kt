@@ -162,6 +162,32 @@ class CodeAnalyzer(
                 currentState.pop()
                 currentState.push(DataEntry(DataEntryType.Other))
             }
+            Opcodes.ARRAYLENGTH,
+            Opcodes.IALOAD,
+            Opcodes.LALOAD,
+            Opcodes.FALOAD,
+            Opcodes.DALOAD,
+            Opcodes.AALOAD,
+            Opcodes.BALOAD,
+            Opcodes.CALOAD,
+            Opcodes.SALOAD, -> {
+                if (p0 != Opcodes.ARRAYLENGTH)
+                    currentState.pop() // index
+                popInstanceAndSetToNotNull()
+                currentState.push(DataEntry(DataEntryType.Other)) // put array length or other value
+            }
+            Opcodes.IASTORE,
+            Opcodes.LASTORE,
+            Opcodes.FASTORE,
+            Opcodes.DASTORE,
+            Opcodes.AASTORE,
+            Opcodes.BASTORE,
+            Opcodes.CASTORE,
+            Opcodes.SASTORE, -> {
+                currentState.pop() // value
+                currentState.pop() // index
+                popInstanceAndSetToNotNull()
+            }
             else -> throwUnsupportedOpcode(p0)
         }
         incOffset()
@@ -215,7 +241,7 @@ class CodeAnalyzer(
             }
 
             if (p0 != Opcodes.INVOKESTATIC) {
-                popAndSetNotNull()
+                popInstanceAndSetToNotNull()
             }
 
             var returnDataEntry: DataEntry? = null
@@ -255,7 +281,7 @@ class CodeAnalyzer(
             Opcodes.GETSTATIC,
             Opcodes.GETFIELD -> {
                 if (p0 == Opcodes.GETFIELD) {
-                    popAndSetNotNull()
+                    popInstanceAndSetToNotNull()
                 }
                 if (p2 != null) {
                     val dataEntry = currentState.getField(p2)
@@ -273,7 +299,7 @@ class CodeAnalyzer(
                     }
                 }
                 if (p0 == Opcodes.PUTFIELD) {
-                    popAndSetNotNull()
+                    popInstanceAndSetToNotNull()
                 }
             }
             else -> throwUnsupportedOpcode(p0)
@@ -350,7 +376,7 @@ class CodeAnalyzer(
         incOffset()
     }
 
-    private fun popAndSetNotNull() {
+    private fun popInstanceAndSetToNotNull() {
         // Mark variable as NotNull because instance is always necessary during invocation
         // a.getHashCode()
         // if (a == null) // prevent excess check

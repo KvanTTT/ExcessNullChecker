@@ -49,6 +49,11 @@ class ExcessNullCheckerTest {
     }
 
     @Test
+    fun arrays() {
+        testFile("Arrays")
+    }
+
+    @Test
     fun misc() {
         testFile("Misc")
     }
