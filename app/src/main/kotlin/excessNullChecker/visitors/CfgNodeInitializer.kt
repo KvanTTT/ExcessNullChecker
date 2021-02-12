@@ -53,6 +53,18 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
         initializeCfgNode()
     }
 
+    override fun visitLookupSwitchInsn(dflt: Label?, keys: IntArray?, labels: Array<out Label>?) {
+        throwUnsupportedOpcode(Opcodes.LOOKUPSWITCH)
+    }
+
+    override fun visitTableSwitchInsn(min: Int, max: Int, dflt: Label?, vararg labels: Label?) {
+        throwUnsupportedOpcode(Opcodes.TABLESWITCH)
+    }
+
+    override fun visitTryCatchBlock(start: Label?, end: Label?, handler: Label?, type: String?) {
+        throw Exception("try-catch-finally block is not supported, TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/9")
+    }
+
     override fun visitInsn(p0: Int) {
         initializeCfgNode()
 

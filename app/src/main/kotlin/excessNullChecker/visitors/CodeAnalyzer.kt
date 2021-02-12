@@ -171,6 +171,7 @@ class CodeAnalyzer(
             Opcodes.BALOAD,
             Opcodes.CALOAD,
             Opcodes.SALOAD, -> {
+                // TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/7
                 if (p0 != Opcodes.ARRAYLENGTH)
                     currentState.pop() // index
                 popInstanceAndSetToNotNull()
@@ -184,6 +185,7 @@ class CodeAnalyzer(
             Opcodes.BASTORE,
             Opcodes.CASTORE,
             Opcodes.SASTORE, -> {
+                // TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/7
                 currentState.pop() // value
                 currentState.pop() // index
                 popInstanceAndSetToNotNull()
@@ -382,6 +384,18 @@ class CodeAnalyzer(
             currentState.pop() // Extract arrays length
         currentState.push(DataEntry(DataEntryType.NotNull))
         incOffset()
+    }
+
+    override fun visitLookupSwitchInsn(dflt: Label?, keys: IntArray?, labels: Array<out Label>?) {
+        throw Exception("Opcode LOOKUPSWITCH is not supported, TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/6")
+    }
+
+    override fun visitTableSwitchInsn(min: Int, max: Int, dflt: Label?, vararg labels: Label?) {
+        throw Exception("Opcode TABLESWITCH is not supported, TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/6")
+    }
+
+    override fun visitTryCatchBlock(start: Label?, end: Label?, handler: Label?, type: String?) {
+        throw Exception("try-catch-finally block is not supported, TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/9")
     }
 
     private fun popInstanceAndSetToNotNull() {

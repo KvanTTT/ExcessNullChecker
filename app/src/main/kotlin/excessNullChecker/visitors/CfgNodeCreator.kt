@@ -59,6 +59,18 @@ class CfgNodeCreatorHelper(
         createCfgNode()
     }
 
+    override fun visitLookupSwitchInsn(dflt: Label?, keys: IntArray?, labels: Array<out Label>?) {
+        throw Exception("Opcode LOOKUPSWITCH is not supported, TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/6")
+    }
+
+    override fun visitTableSwitchInsn(min: Int, max: Int, dflt: Label?, vararg labels: Label?) {
+        throw Exception("Opcode TABLESWITCH is not supported, TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/6")
+    }
+
+    override fun visitTryCatchBlock(start: Label?, end: Label?, handler: Label?, type: String?) {
+        throw Exception("try-catch-finally block is not supported, TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/9")
+    }
+
     override fun visitJumpInsn(p0: Int, p1: Label?) {
         markNextInstruction = p0 != Opcodes.GOTO
         incOffset()
