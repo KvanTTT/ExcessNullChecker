@@ -37,6 +37,14 @@ public class Misc {
         }
     }
 
+    static void mergeStacksOfDifferentSize(Object a) {
+        if (a != null) {
+            Object b = a;
+            if (b != null) { // Test: condition_is_always_true
+            }
+        }
+    }
+
     static void loop(int param, Object a) {
         for (int i = 0; i < param; i++) {
             a = new Object();

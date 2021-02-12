@@ -1,9 +1,9 @@
-import java.lang.Exception
-
 class State {
     private val stack: MutableList<DataEntry> = mutableListOf()
     private val fields: MutableMap<String, DataEntry> = mutableMapOf()
+    private val _cfgNode: CfgNode?
     val cfgNode: CfgNode?
+        get() = _cfgNode
     var condition: Condition? = null
 
     constructor(anotherState: State, cfgNode: CfgNode?, condition: Condition?) : this(cfgNode) {
@@ -15,7 +15,7 @@ class State {
     }
 
     constructor(cfgNode: CfgNode?) {
-        this.cfgNode = cfgNode
+        this._cfgNode = cfgNode
     }
 
     fun push(dataEntry: DataEntry) {
@@ -36,14 +36,14 @@ class State {
     fun get(name: String): DataEntry? {
         val index = name.toIntOrNull()
         if (index != null) {
-            return get(index)
-        } else if (isNullOrNotNull(name)) {
+            return getLocal(index)
+        } else if (isDefined(name)) {
             return getField(name)
         }
         return null
     }
 
-    fun get(index: Int): DataEntry {
+    fun getLocal(index: Int): DataEntry {
         return stack[index]
     }
 
@@ -54,8 +54,8 @@ class State {
     fun set(name: String, dataEntry: DataEntry) {
         val index = name.toIntOrNull()
         if (index != null) {
-            set(index, dataEntry)
-        } else if (isNullOrNotNull(name)) {
+            setLocal(index, dataEntry)
+        } else if (isDefined(name)) {
             setField(name, dataEntry)
         }
     }
@@ -67,18 +67,15 @@ class State {
             dataEntry.type)
     }
 
-    fun set(index: Int, dataEntry: DataEntry) {
-        if (index == -1)
-            return
-
+    fun setLocal(index: Int, dataEntry: DataEntry) {
         if (index >= stack.size) {
             for (i in 0..index-stack.size) {
                 stack.add(DataEntry(DataEntryType.Uninitialized))
             }
         }
+
         stack[index] = DataEntry(
-            if (dataEntry.name == Uninitialized) index.toString() else
-                dataEntry.name,
+            if (dataEntry.name == Uninitialized) index.toString() else dataEntry.name,
             dataEntry.type)
     }
 
@@ -87,13 +84,11 @@ class State {
     }
 
     fun merge(otherStack: State) {
-        if (stack.size != otherStack.stack.size)
-            throw Exception("Stack sizes must be equal")
-
         if (fields.size != otherStack.fields.size)
             throw Exception("Number of fields must be equal")
 
-        for (i in 0 until stack.size) {
+        // Drop local variables in nested scopes
+        for (i in 0 until minOf(stack.size, otherStack.stack.size)) {
             stack[i] = stack[i].merge(otherStack.stack[i])
         }
         for (item in otherStack.fields) {

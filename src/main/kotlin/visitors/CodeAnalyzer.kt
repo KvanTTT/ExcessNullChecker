@@ -56,16 +56,16 @@ class CodeAnalyzer(
             Opcodes.DLOAD -> {
                 currentState.push(DataEntry(p1, DataEntryType.Other))
             }
-            Opcodes.ALOAD -> currentState.push(currentState.get(p1))
+            Opcodes.ALOAD -> currentState.push(currentState.getLocal(p1))
 
             Opcodes.ISTORE,
             Opcodes.LSTORE,
             Opcodes.FSTORE,
             Opcodes.DSTORE -> {
-                currentState.set(p1, DataEntry(DataEntryType.Other))
+                currentState.setLocal(p1, DataEntry(DataEntryType.Other))
             }
             Opcodes.ASTORE -> {
-                currentState.set(p1, currentState.pop())
+                currentState.setLocal(p1, currentState.pop())
             }
 
             else -> throwUnsupportedOpcode(p0)

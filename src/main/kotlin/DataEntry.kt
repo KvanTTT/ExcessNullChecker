@@ -1,7 +1,7 @@
 const val Uninitialized = "<Uninitialized>"
 const val Dirty = "<Dirty>"
 
-fun isNullOrNotNull(varName: String): Boolean {
+fun isDefined(varName: String): Boolean {
     return varName != Uninitialized && varName != Dirty
 }
 

@@ -24,10 +24,10 @@ class NullCheckCondition(line: Int, val name: String, val dataEntryType: DataEnt
     }
 
     override fun toString(): String {
-        return "x${if (isNullOrNotNull(name)) name else "?"} == $dataEntryType"
+        return "x${if (isDefined(name)) name else "?"} == $dataEntryType"
     }
 
     fun isDefined(): Boolean {
-        return isNullOrNotNull(name) && dataEntryType.isNullOrNotNull()
+        return isDefined(name) && dataEntryType.isNullOrNotNull()
     }
 }
