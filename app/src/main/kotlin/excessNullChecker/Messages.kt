@@ -1,5 +1,8 @@
 package excessNullChecker
 
+abstract class Message(val line: Int) {
+}
+
 class ConsoleLogger : Logger {
     val ANSI_RESET = "\u001B[0m"
     val ANSI_RED = "\u001B[31m"

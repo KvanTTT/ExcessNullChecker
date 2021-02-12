@@ -1,32 +1,14 @@
 package excessNullChecker.visitors
 
-import excessNullChecker.AnotherCondition
-import excessNullChecker.CfgLinkType
-import excessNullChecker.CfgNode
-import excessNullChecker.DataEntry
-import excessNullChecker.Dirty
-import excessNullChecker.EmptyCondition
-import excessNullChecker.ExcessCheckMessage
-import excessNullChecker.Logger
-import excessNullChecker.NullCheckCondition
-import excessNullChecker.DataEntryType
-import excessNullChecker.Signature
-import excessNullChecker.State
-import excessNullChecker.Uninitialized
+import excessNullChecker.*
 import org.objectweb.asm.*
 
 class CodeAnalyzer(
-    private val signature: Signature,
-    private val fields: Map<String, FieldInfo>,
-    private val processedMethods: MutableMap<String, DataEntry>,
-    private val processedFinalFields: MutableMap<String, DataEntryType>,
-    private val methodsCfg: Map<String, Map<Int, CfgNode>>,
-    private val classFileData: ByteArray,
-    private val logger: Logger
+    private val context: Context,
+    private val signature: Signature
 ) : AdvancedVisitor() {
     private var currentState: State
-    private val cfgNodes: Map<Int, CfgNode> = methodsCfg[signature.fullName]!!
-
+    private val cfgNodes: Map<Int, CfgNode> = context.methodsCfg[signature.fullName] ?: throw Exception("Cfg not found for ${signature.fullName}")
     private val cfgNodeStates: MutableMap<CfgNode, State> = mutableMapOf()
 
     init {
@@ -41,8 +23,8 @@ class CodeAnalyzer(
             // Initialize local variables from parameters
             currentState.push(DataEntry(i + offset, DataEntryType.Other))
         }
-        for (field in fields) {
-            val processedFinalField = processedFinalFields[field.key]
+        for (field in context.fields) {
+            val processedFinalField = context.processedFinalFields[field.key]
             currentState.setField(field.key, DataEntry(field.key, processedFinalField ?: DataEntryType.Other))
         }
     }
@@ -107,9 +89,9 @@ class CodeAnalyzer(
                 val currentDataEntry =
                     if (p0 != Opcodes.RETURN) currentState.pop() else DataEntry(Dirty, DataEntryType.Other)
 
-                val methodReturnEntry = processedMethods[signature.fullName]
+                val methodReturnEntry = context.processedMethods[signature.fullName]
                 if (methodReturnEntry != null)
-                    processedMethods[signature.fullName] = methodReturnEntry.merge(currentDataEntry)
+                    context.processedMethods[signature.fullName] = methodReturnEntry.merge(currentDataEntry)
 
                 currentState.clear()
             }
@@ -235,23 +217,14 @@ class CodeAnalyzer(
 
             var returnDataEntry: DataEntry? = null
             var returnType: DataEntryType = DataEntryType.Other
-            if (methodsCfg.containsKey(signature.fullName)) {
-                returnDataEntry = processedMethods[signature.fullName]
+            if (context.methodsCfg.containsKey(signature.fullName)) {
+                returnDataEntry = context.processedMethods[signature.fullName]
                 if (returnDataEntry == null) {
                     // Recursive analysing...
-                    val methodAnalyzer = MethodAnalyzer(
-                        BypassType.All,
-                        fields,
-                        processedMethods,
-                        processedFinalFields,
-                        methodsCfg,
-                        signature.fullName,
-                        classFileData,
-                        logger
-                    )
-                    val classReader = ClassReader(classFileData)
+                    val methodAnalyzer = MethodAnalyzer(context, BypassType.All, signature.fullName)
+                    val classReader = ClassReader(context.bytes)
                     classReader.accept(methodAnalyzer, 0)
-                    returnDataEntry = processedMethods[signature.fullName]
+                    returnDataEntry = context.processedMethods[signature.fullName]
                 }
                 returnType = returnDataEntry?.type ?: DataEntryType.Other
             }
@@ -291,9 +264,9 @@ class CodeAnalyzer(
                 val dataEntry = currentState.pop()
                 if (p2 != null) {
                     currentState.setField(p2, dataEntry)
-                    val finalField = processedFinalFields[p2]
+                    val finalField = context.processedFinalFields[p2]
                     if (finalField != null) {
-                        processedFinalFields[p2] = finalField.merge(dataEntry.type)
+                        context.processedFinalFields[p2] = finalField.merge(dataEntry.type)
                     }
                 }
                 if (p0 == Opcodes.PUTFIELD) {
@@ -348,7 +321,7 @@ class CodeAnalyzer(
                 }
 
                 val condition = if (conditionIsAlwaysTrue != null) {
-                    logger.info(ExcessCheckMessage(conditionIsAlwaysTrue, currentLine))
+                    context.logger.info(ExcessCheckMessage(conditionIsAlwaysTrue, currentLine))
                     if (conditionIsAlwaysTrue) null else AnotherCondition(currentLine)
                 } else {
                     NullCheckCondition(currentLine, dataEntry.name, checkType)

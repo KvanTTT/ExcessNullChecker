@@ -42,7 +42,7 @@ gradle run --args='<fileNameOrDirectory>'
 gradle test
 ```
 
-Test files are located in `app/src/test/resources` directory.
+Test files are located in [`app/src/test/resources`](app/src/test/resources) directory.
 
 Expected warnings placed directly to test files and
 marked with the following markers:

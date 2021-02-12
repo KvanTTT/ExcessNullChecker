@@ -38,60 +38,31 @@ class Analyzer(private val logger: Logger) {
     fun runOnClassFile(classFile: File) {
         logger.info("Excess null check of $classFile...")
 
-        EmptyFieldVisitor()
-        EmptyMethodVisitor()
-
         try {
             val bytes = classFile.readBytes()
             val classReader = ClassReader(bytes)
 
+            // collect declarations (fields)
             val declCollector = DeclCollector()
             classReader.accept(declCollector, 0)
 
+            // create and initialize cfg for every method
             val cfgNodeCreator = CfgNodeCreator()
             classReader.accept(cfgNodeCreator, 0)
             classReader.accept(CfgNodeInitializer(cfgNodeCreator.methodsCfg), 0)
 
-            val processedMethods = mutableMapOf<String, DataEntry>()
-            val processedFinalFields = mutableMapOf<String, DataEntryType>()
-            for (item in declCollector.fields)
-                if (item.value.isFinal)
-                    processedFinalFields[item.key] = DataEntryType.Uninitialized
+            val context = Context(declCollector.fields, cfgNodeCreator.methodsCfg, bytes, logger)
 
-            val staticConstructorAnalyzer = MethodAnalyzer(
-                BypassType.StaticConstructor,
-                declCollector.fields,
-                processedMethods,
-                processedFinalFields,
-                cfgNodeCreator.methodsCfg,
-                null,
-                bytes,
-                logger
-            )
+            // Analyze static constructor
+            val staticConstructorAnalyzer = MethodAnalyzer(context, BypassType.StaticConstructor)
             classReader.accept(staticConstructorAnalyzer, 0)
 
-            val constructorAnalyzer = MethodAnalyzer(
-                BypassType.Constructors,
-                declCollector.fields,
-                processedMethods,
-                processedFinalFields,
-                cfgNodeCreator.methodsCfg,
-                null,
-                bytes,
-                logger
-            )
+            // Analyze ordinary constructors
+            val constructorAnalyzer = MethodAnalyzer(context, BypassType.Constructors)
             classReader.accept(constructorAnalyzer, 0)
 
-            val methodAnalyzer = MethodAnalyzer(
-                BypassType.Methods,
-                declCollector.fields,
-                processedMethods,
-                processedFinalFields,
-                cfgNodeCreator.methodsCfg,
-                null,
-                bytes,
-                logger
-            )
+            // Analyze rest methods
+            val methodAnalyzer = MethodAnalyzer(context, BypassType.Methods)
             classReader.accept(methodAnalyzer, 0)
         }
         catch (ex: Exception) {

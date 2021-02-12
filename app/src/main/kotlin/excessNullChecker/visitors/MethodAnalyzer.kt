@@ -11,14 +11,9 @@ enum class BypassType {
 }
 
 class MethodAnalyzer(
+    private val context: Context,
     private val bypassType: BypassType,
-    private val fields: Map<String, FieldInfo>,
-    private val processedMethods: MutableMap<String, DataEntry>,
-    private val processedFinalFields: MutableMap<String, DataEntryType>,
-    private val methodsInfos: Map<String, Map<Int, CfgNode>>,
-    private val methodToProcess: String? = null,
-    private val classFileData: ByteArray,
-    private val logger: Logger
+    private val methodToProcess: String? = null
 )
     : ClassVisitor(Opcodes.ASM5) {
 
@@ -39,21 +34,13 @@ class MethodAnalyzer(
             return EmptyMethodVisitor.instance
         }
 
-        if (!processedMethods.contains(signature.fullName)) {
+        if (!context.processedMethods.contains(signature.fullName)) {
             val isFinalOrStatic =
                 p0 and (Opcodes.ACC_FINAL or Opcodes.ACC_STATIC) != 0 // Other methods may be overridden
-            processedMethods[signature.fullName] = if (isFinalOrStatic)
+            context.processedMethods[signature.fullName] = if (isFinalOrStatic)
                 DataEntry(Uninitialized, DataEntryType.Uninitialized) else
                 DataEntry(Dirty, DataEntryType.Other)
-            return CodeAnalyzer(
-                signature,
-                fields,
-                processedMethods,
-                processedFinalFields,
-                methodsInfos,
-                classFileData,
-                logger
-            )
+            return CodeAnalyzer(context, signature)
         }
 
         return EmptyMethodVisitor.instance
