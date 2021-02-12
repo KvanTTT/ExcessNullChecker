@@ -174,6 +174,10 @@ class CodeAnalyzer(
             Opcodes.SIPUSH -> {
                 currentState.push(DataEntry(DataEntryType.Other))
             }
+            Opcodes.NEWARRAY -> {
+                currentState.pop()
+                currentState.push(DataEntry(DataEntryType.NotNull))
+            }
             else -> throwUnsupportedOpcode(p0)
         }
         incOffset()
@@ -189,7 +193,6 @@ class CodeAnalyzer(
         checkState()
         when (p0) {
             Opcodes.NEW,
-            Opcodes.NEWARRAY,
             Opcodes.ANEWARRAY -> {
                 if (p0 != Opcodes.NEW)
                     currentState.pop() // pop array length
