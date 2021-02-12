@@ -1,11 +1,6 @@
 package test;
 
 public class Misc {
-    static void nullEqualsNull() {
-        if (null == null) { // Test: condition_is_always_true
-        }
-    }
-
     static void doubleCheckTheSameCondition(Object x) {
         if (x == null) {
             if (x == null) { // Test: condition_is_always_true
