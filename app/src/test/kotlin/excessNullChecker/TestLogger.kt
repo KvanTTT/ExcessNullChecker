@@ -1,3 +1,5 @@
+package excessNullChecker
+
 import kotlin.test.assertTrue
 import kotlin.test.fail
 

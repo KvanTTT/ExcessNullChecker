@@ -1,6 +1,6 @@
-package visitors
+package excessNullChecker.visitors
 
-import jdk.internal.org.objectweb.asm.*
+import org.objectweb.asm.*
 
 class EmptyFieldVisitor : FieldVisitor(Opcodes.ASM5) {
     companion object {

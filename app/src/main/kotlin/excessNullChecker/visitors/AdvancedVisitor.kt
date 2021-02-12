@@ -1,8 +1,8 @@
-package visitors
+package excessNullChecker.visitors
 
-import jdk.internal.org.objectweb.asm.Label
-import jdk.internal.org.objectweb.asm.MethodVisitor
-import jdk.internal.org.objectweb.asm.Opcodes
+import org.objectweb.asm.Label
+import org.objectweb.asm.MethodVisitor
+import org.objectweb.asm.Opcodes
 
 open class AdvancedVisitor : MethodVisitor(Opcodes.ASM5) {
     private var _offset: Int = 0

@@ -1,19 +1,19 @@
-package visitors
+package excessNullChecker.visitors
 
-import AnotherCondition
-import CfgLinkType
-import CfgNode
-import DataEntry
-import Dirty
-import EmptyCondition
-import ExcessCheckMessage
-import Logger
-import NullCheckCondition
-import DataEntryType
-import Signature
-import State
-import jdk.internal.org.objectweb.asm.*
-import Uninitialized
+import excessNullChecker.AnotherCondition
+import excessNullChecker.CfgLinkType
+import excessNullChecker.CfgNode
+import excessNullChecker.DataEntry
+import excessNullChecker.Dirty
+import excessNullChecker.EmptyCondition
+import excessNullChecker.ExcessCheckMessage
+import excessNullChecker.Logger
+import excessNullChecker.NullCheckCondition
+import excessNullChecker.DataEntryType
+import excessNullChecker.Signature
+import excessNullChecker.State
+import excessNullChecker.Uninitialized
+import org.objectweb.asm.*
 
 class CodeAnalyzer(
     private val signature: Signature,

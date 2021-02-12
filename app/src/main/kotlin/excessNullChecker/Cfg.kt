@@ -1,3 +1,5 @@
+package excessNullChecker
+
 const val CfgReturnIndex = -1
 
 class CfgNode(val begin: Int) {

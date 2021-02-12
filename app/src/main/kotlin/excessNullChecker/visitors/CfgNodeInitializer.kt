@@ -1,13 +1,13 @@
-package visitors
+package excessNullChecker.visitors
 
-import CfgLink
-import CfgLinkType
-import CfgNode
-import CfgReturnIndex
-import jdk.internal.org.objectweb.asm.ClassVisitor
-import jdk.internal.org.objectweb.asm.Label
-import jdk.internal.org.objectweb.asm.MethodVisitor
-import jdk.internal.org.objectweb.asm.Opcodes
+import excessNullChecker.CfgLink
+import excessNullChecker.CfgLinkType
+import excessNullChecker.CfgNode
+import excessNullChecker.CfgReturnIndex
+import org.objectweb.asm.ClassVisitor
+import org.objectweb.asm.Label
+import org.objectweb.asm.MethodVisitor
+import org.objectweb.asm.Opcodes
 
 class CfgNodeInitializer(private val methodsCfg: Map<String, Map<Int, CfgNode>>) : ClassVisitor(Opcodes.ASM5) {
     override fun visitMethod(p0: Int, p1: String?, p2: String?, p3: String?, p4: Array<out String>?): MethodVisitor {

@@ -1,12 +1,7 @@
-package visitors
+package excessNullChecker.visitors
 
-import CfgNode
-import DataEntry
-import Dirty
-import Logger
-import DataEntryType
-import Uninitialized
-import jdk.internal.org.objectweb.asm.*
+import excessNullChecker.*
+import org.objectweb.asm.*
 
 enum class BypassType {
     Constructors,

@@ -1,3 +1,5 @@
+package excessNullChecker
+
 abstract class Condition(val line: Int) {
     abstract fun Invert(): Condition
 }

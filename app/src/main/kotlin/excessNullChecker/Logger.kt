@@ -1,3 +1,5 @@
+package excessNullChecker
+
 interface Logger {
     fun info(message: Message)
 

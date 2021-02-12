@@ -1,6 +1,8 @@
-import org.junit.Test
+package excessNullChecker
+
 import java.io.File
 import java.nio.file.Paths
+import kotlin.test.Test
 import kotlin.test.fail
 
 class ExcessNullCheckerTest {

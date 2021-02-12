@@ -1,8 +1,8 @@
-package visitors
+package excessNullChecker.visitors
 
-import CfgNode
-import CfgReturnIndex
-import jdk.internal.org.objectweb.asm.*
+import excessNullChecker.CfgNode
+import excessNullChecker.CfgReturnIndex
+import org.objectweb.asm.*
 
 class CfgNodeCreator: ClassVisitor( Opcodes.ASM5) {
     val methodsCfg: MutableMap<String, MutableMap<Int, CfgNode>> = mutableMapOf()

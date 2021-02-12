@@ -1,3 +1,5 @@
+package excessNullChecker
+
 data class Signature(val fullName: String, val static: Boolean, val paramsCount: Int, val isVoid: Boolean) {
     companion object {
         fun get(static: Boolean, name: String?, params: String?): Signature {

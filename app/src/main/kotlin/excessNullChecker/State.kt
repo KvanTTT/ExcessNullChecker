@@ -1,3 +1,5 @@
+package excessNullChecker
+
 class State {
     private val stack: MutableList<DataEntry> = mutableListOf()
     private val fields: MutableMap<String, DataEntry> = mutableMapOf()

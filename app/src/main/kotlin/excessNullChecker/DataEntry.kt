@@ -1,3 +1,5 @@
+package excessNullChecker
+
 const val Uninitialized = "<Uninitialized>"
 const val Dirty = "<Dirty>"
 

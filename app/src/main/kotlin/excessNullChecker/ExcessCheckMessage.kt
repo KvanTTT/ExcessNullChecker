@@ -1,3 +1,5 @@
+package excessNullChecker
+
 class ExcessCheckMessage(p: Boolean, l: Int) : Message(l) {
     val param: Boolean = p
 

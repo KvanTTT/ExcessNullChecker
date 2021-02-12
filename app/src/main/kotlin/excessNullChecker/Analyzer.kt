@@ -1,5 +1,7 @@
-import jdk.internal.org.objectweb.asm.ClassReader
-import visitors.*
+package excessNullChecker
+
+import org.objectweb.asm.ClassReader
+import excessNullChecker.visitors.*
 import java.io.File
 import java.lang.Exception
 
