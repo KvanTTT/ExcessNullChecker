@@ -228,6 +228,10 @@ class CodeAnalyzer(
                 val objectRef = currentState.pop()
                 currentState.push(objectRef)
             }
+            Opcodes.INSTANCEOF -> {
+                currentState.pop() // TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/8
+                currentState.push(DataEntry(DataEntryType.Other))
+            }
             else -> throwUnsupportedOpcode(p0)
         }
         incOffset()
