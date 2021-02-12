@@ -57,6 +57,9 @@ public class Misc {
         String[] a = new String[0];
         if (a != null) { // Test: condition_is_always_true
         }
+        int[][][] b = new int[1][2][3];
+        if (b != null) { // Test: condition_is_always_true
+        }
     }
 
     static void checkAndReassign(Object a, Object b, Object c) {

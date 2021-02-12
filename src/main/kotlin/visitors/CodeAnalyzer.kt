@@ -366,6 +366,14 @@ class CodeAnalyzer(
         incOffset()
     }
 
+    override fun visitMultiANewArrayInsn(p0: String?, p1: Int) {
+        checkState()
+        for (i in 0 until p1)
+            currentState.pop() // Extract arrays length
+        currentState.push(DataEntry(DataEntryType.NotNull))
+        incOffset()
+    }
+
     private fun popAndSetNotNull() {
         // Mark variable as NotNull because instance is always necessary during invocation
         // a.getHashCode()

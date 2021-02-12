@@ -49,6 +49,10 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
         initializeCfgNode()
     }
 
+    override fun visitMultiANewArrayInsn(p0: String?, p1: Int) {
+        initializeCfgNode()
+    }
+
     override fun visitInsn(p0: Int) {
         initializeCfgNode()
 

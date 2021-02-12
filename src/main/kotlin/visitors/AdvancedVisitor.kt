@@ -52,6 +52,10 @@ open class AdvancedVisitor : MethodVisitor(Opcodes.ASM5) {
         incOffset()
     }
 
+    override fun visitMultiANewArrayInsn(p0: String?, p1: Int) {
+        incOffset()
+    }
+
     protected fun incOffset() {
         _offset++
     }

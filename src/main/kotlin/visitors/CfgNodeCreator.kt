@@ -55,6 +55,10 @@ class CfgNodeCreatorHelper(
         createCfgNode()
     }
 
+    override fun visitMultiANewArrayInsn(p0: String?, p1: Int) {
+        createCfgNode()
+    }
+
     override fun visitJumpInsn(p0: Int, p1: Label?) {
         markNextInstruction = p0 != Opcodes.GOTO
         incOffset()
