@@ -66,4 +66,13 @@ public class Misc {
         if (c == null) { // Not always null
         }
     }
+
+    static void checkcast(Object o2) {
+        Object o1 = new Object();
+        String s = (String)o1;
+        if (s == null) { //  Test: condition_is_always_false
+        }
+        if ((String)o2 == null) { // No warning
+        }
+    }
 }

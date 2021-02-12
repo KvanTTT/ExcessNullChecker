@@ -224,6 +224,10 @@ class CodeAnalyzer(
                     currentState.pop() // pop array length
                 currentState.push(DataEntry(DataEntryType.NotNull))
             }
+            Opcodes.CHECKCAST -> {
+                val objectRef = currentState.pop()
+                currentState.push(objectRef)
+            }
             else -> throwUnsupportedOpcode(p0)
         }
         incOffset()
