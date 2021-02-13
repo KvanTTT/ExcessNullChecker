@@ -1,5 +1,7 @@
 # Excess Null Checker
 
+![CI](https://github.com/KvanTTT/ExcessNullChecker/workflows/CI/badge.svg)
+
 ## Description
 
 A tool that searches `.java` or `.class` files to detect excess null checks like
