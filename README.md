@@ -1,6 +1,6 @@
 # Excess Null Checker
 
-![CI](https://github.com/KvanTTT/ExcessNullChecker/workflows/CI/badge.svg)
+[![CI](https://github.com/KvanTTT/ExcessNullChecker/workflows/CI/badge.svg)](https://github.com/KvanTTT/ExcessNullChecker/actions)
 
 ## Description
 
