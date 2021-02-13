@@ -75,4 +75,12 @@ public class Misc {
         if ((String)o2 == null) { // No warning
         }
     }
+
+    static void dropReturnResult(Object a) {
+        dropReturnResultHelper();
+    }
+
+    static int dropReturnResultHelper() {
+        return 4;
+    }
 }

@@ -190,6 +190,29 @@ class CodeAnalyzer(
                 currentState.pop() // index
                 popInstanceAndSetToNotNull()
             }
+            Opcodes.POP -> {
+                currentState.pop()
+            }
+            Opcodes.POP2 -> {
+                currentState.pop()
+                currentState.pop()
+            }
+            Opcodes.DUP_X1 -> {
+                val value1 = currentState.pop()
+                val value2 = currentState.pop()
+                currentState.push(value1)
+                currentState.push(value2)
+                currentState.push(value1)
+            }
+            Opcodes.DUP_X2 -> {
+                val value1 = currentState.pop()
+                val value2 = currentState.pop()
+                val value3 = currentState.pop()
+                currentState.push(value1)
+                currentState.push(value3)
+                currentState.push(value2)
+                currentState.push(value1)
+            }
             else -> throwUnsupportedOpcode(p0)
         }
         incOffset()
@@ -243,7 +266,8 @@ class CodeAnalyzer(
         checkState()
         val isStatic = p0 == Opcodes.INVOKESTATIC
         val signature = Signature.get(isStatic, p2, p3)
-        if (p0 == Opcodes.INVOKEVIRTUAL || p0 == Opcodes.INVOKESPECIAL || p0 == Opcodes.INVOKESTATIC) {
+        if (p0 == Opcodes.INVOKEVIRTUAL || p0 == Opcodes.INVOKESPECIAL || p0 == Opcodes.INVOKESTATIC ||
+            p0 == Opcodes.INVOKEINTERFACE) {
             // Make virtual call and remove parameters from stack except of the first one
             val params = mutableListOf<DataEntry>()
             for (i in 0 until signature.paramsCount) {
@@ -353,10 +377,8 @@ class CodeAnalyzer(
                 var conditionIsAlwaysTrue: Boolean? = null
                 if (dataEntryType.isNullOrNotNull()) {
                     conditionIsAlwaysTrue =
-                        if (checkType == DataEntryType.Null) dataEntryType == DataEntryType.NotNull else dataEntryType == DataEntryType.Null
-                }
-                else {
-                    // TODO: support of complex nested return conditions
+                        if (checkType == DataEntryType.Null) dataEntryType == DataEntryType.NotNull
+                            else dataEntryType == DataEntryType.Null
                 }
 
                 val condition = if (conditionIsAlwaysTrue != null) {
