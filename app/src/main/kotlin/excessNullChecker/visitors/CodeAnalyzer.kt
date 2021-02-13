@@ -23,6 +23,7 @@ class CodeAnalyzer(
             // Initialize local variables from parameters
             currentState.push(DataEntry(i + offset, DataEntryType.Other))
         }
+        // fields also can be changed in local scope
         for (field in context.fields) {
             val processedFinalField = context.processedFinalFields[field.key]
             currentState.setField(field.key, DataEntry(field.key, processedFinalField ?: DataEntryType.Other))
@@ -96,6 +97,8 @@ class CodeAnalyzer(
                 currentState.clear()
             }
             Opcodes.ATHROW -> {
+                // TODO: It works only within entire method, not within try-catch-finally block, see
+                // https://github.com/KvanTTT/ExcessNullChecker/issues/9
                 val objectRef = currentState.pop()
                 currentState.clear()
                 currentState.push(objectRef)
@@ -171,7 +174,7 @@ class CodeAnalyzer(
             Opcodes.BALOAD,
             Opcodes.CALOAD,
             Opcodes.SALOAD, -> {
-                // TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/7
+                // TODO: accessing via array index, https://github.com/KvanTTT/ExcessNullChecker/issues/7
                 if (p0 != Opcodes.ARRAYLENGTH)
                     currentState.pop() // index
                 popInstanceAndSetToNotNull()
@@ -185,7 +188,7 @@ class CodeAnalyzer(
             Opcodes.BASTORE,
             Opcodes.CASTORE,
             Opcodes.SASTORE, -> {
-                // TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/7
+                // TODO: accessing via array index, https://github.com/KvanTTT/ExcessNullChecker/issues/7
                 currentState.pop() // value
                 currentState.pop() // index
                 popInstanceAndSetToNotNull()
@@ -254,7 +257,7 @@ class CodeAnalyzer(
                 currentState.push(objectRef)
             }
             Opcodes.INSTANCEOF -> {
-                currentState.pop() // TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/8
+                currentState.pop() // TODO: correct instanceof support, https://github.com/KvanTTT/ExcessNullChecker/issues/8
                 currentState.push(DataEntry(DataEntryType.Other))
             }
             else -> throwUnsupportedOpcode(p0)
@@ -268,7 +271,7 @@ class CodeAnalyzer(
         val signature = Signature.get(isStatic, p2, p3)
         if (p0 == Opcodes.INVOKEVIRTUAL || p0 == Opcodes.INVOKESPECIAL || p0 == Opcodes.INVOKESTATIC ||
             p0 == Opcodes.INVOKEINTERFACE) {
-            // Make virtual call and remove parameters from stack except of the first one
+            // Remove parameters from stack except of the first one
             val params = mutableListOf<DataEntry>()
             for (i in 0 until signature.paramsCount) {
                 params.add(currentState.pop())
@@ -292,7 +295,16 @@ class CodeAnalyzer(
                 returnType = returnDataEntry?.type ?: DataEntryType.Other
             }
 
-            // Try to link passed param with return value
+            // Try to link passed param with return value:
+            //
+            // static void callWithPassedParam() {
+            //     if (callWithPassedParamHelper(new Object()) != null) { // Test: condition_is_always_true
+            //     }
+            // }
+            //
+            // static Object callWithPassedParamHelper(Object param) {
+            //     return param;
+            // }
             if (returnDataEntry != null && returnType == DataEntryType.Other) {
                 val linkedLocalVar = returnDataEntry.name.toIntOrNull() // Only local variables are relevant
                 if (linkedLocalVar != null) {
@@ -421,7 +433,7 @@ class CodeAnalyzer(
     }
 
     private fun popInstanceAndSetToNotNull() {
-        // Mark variable as NotNull because instance is always necessary during invocation
+        // Mark variable as NotNull because instance is always required for invocation
         // a.getHashCode()
         // if (a == null) // prevent excess check
         val instance = currentState.pop()
@@ -441,7 +453,6 @@ class CodeAnalyzer(
         val nextCfgNode = cfgNodes[offset]
         if (nextCfgNode != null && offset > 0) {
             // Restore state
-
             var resultState: State? = null
 
             val parentLinks = nextCfgNode.getParentLinks()
@@ -463,6 +474,11 @@ class CodeAnalyzer(
 
             // Set state of outer block after inner return statement
             if (parentLinks.size == 1) {
+                // Check the following and similar:
+                // if (x == null) return;
+                // if (x != null) { // Test: condition_is_always_true
+                // }
+
                 val link = parentLinks[0]
                 val condition = cfgNodeStates[link.begin]?.condition
                 if (condition is NullCheckCondition && condition.isDefined()) {

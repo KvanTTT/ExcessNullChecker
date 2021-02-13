@@ -24,7 +24,7 @@ class MethodAnalyzer(
         if (bypassType == BypassType.Constructors && !isConstructor ||
             bypassType == BypassType.StaticConstructor && !isStaticConstructor ||
             bypassType == BypassType.Methods && (isConstructor || isStaticConstructor)) {
-            return EmptyMethodVisitor.instance
+            return EmptyMethodVisitor.instance // Ignore not actual methods
         }
 
         val isStatic = (p0 and Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC
@@ -36,13 +36,13 @@ class MethodAnalyzer(
 
         if (!context.processedMethods.contains(signature.fullName)) {
             val isFinalOrStatic =
-                p0 and (Opcodes.ACC_FINAL or Opcodes.ACC_STATIC) != 0 // Other methods may be overridden
+                p0 and (Opcodes.ACC_FINAL or Opcodes.ACC_STATIC) != 0 // Not final and not static methods may be overridden
             context.processedMethods[signature.fullName] = if (isFinalOrStatic)
                 DataEntry(Uninitialized, DataEntryType.Uninitialized) else
                 DataEntry(Dirty, DataEntryType.Other)
             return CodeAnalyzer(context, signature)
         }
 
-        return EmptyMethodVisitor.instance
+        return EmptyMethodVisitor.instance // Ignore already processed methods to prevent endless recursion
     }
 }

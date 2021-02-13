@@ -6,7 +6,7 @@ import java.io.File
 import java.lang.Exception
 
 class Analyzer(private val logger: Logger) {
-    fun runOnJavaFile(javaFile: File, removeClassFile: Boolean) {
+    fun runOnJavaFile(javaFile: File, removeTempFile: Boolean) {
         // TODO: support of temp dir
         logger.info("Compile ${javaFile.absoluteFile}...")
 
@@ -31,7 +31,7 @@ class Analyzer(private val logger: Logger) {
         val classFile = File(getFileWithoutExtension(javaFile.absolutePath) + ".class")
         runOnClassFile(classFile)
 
-        if (removeClassFile)
+        if (removeTempFile)
             classFile.delete()
     }
 
@@ -66,7 +66,7 @@ class Analyzer(private val logger: Logger) {
             classReader.accept(methodAnalyzer, 0)
         }
         catch (ex: Exception) {
-            logger.error(ex.message ?: "Error during $classFile checking")
+            logger.error("Error during $classFile checking: ${ex.message}")
         }
     }
 }

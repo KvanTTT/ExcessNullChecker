@@ -3,19 +3,21 @@ package excessNullChecker
 abstract class Message(val line: Int) {
 }
 
-class ConsoleLogger : Logger {
-    val ANSI_RESET = "\u001B[0m"
-    val ANSI_RED = "\u001B[31m"
+class ExcessCheckMessage(p: Boolean, l: Int) : Message(l) {
+    val param: Boolean = p
 
-    override fun info(message: Message) {
-        println(message)
+    override fun toString(): String {
+        return "Condition is always $param at $line"
     }
 
-    override fun info(message: String) {
-        println(message)
+    override fun equals(other: Any?): Boolean {
+        if (other !is ExcessCheckMessage)
+            return false
+
+        return this.param == other.param && this.line == other.line
     }
 
-    override fun error(message: String) {
-        println(ANSI_RED + message + ANSI_RESET)
+    override fun hashCode(): Int {
+        return (if (this.param) 1 else 0) xor this.line
     }
 }

@@ -86,9 +86,6 @@ class State {
     }
 
     fun merge(otherStack: State) {
-        if (fields.size != otherStack.fields.size)
-            throw Exception("Number of fields must be equal")
-
         // Drop local variables in nested scopes
         for (i in 0 until minOf(stack.size, otherStack.stack.size)) {
             stack[i] = stack[i].merge(otherStack.stack[i])

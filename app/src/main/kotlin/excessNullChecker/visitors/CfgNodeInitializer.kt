@@ -112,7 +112,7 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
             }
             Opcodes.GOTO -> {
                 cfgLinkType = CfgLinkType.Epsilon
-                nextLinkType = null
+                nextLinkType = null // No CFG link after unconditional instruction
             }
             else -> throwUnsupportedOpcode(p0)
         }
@@ -122,9 +122,11 @@ class CfgNodeInitializerHelper(private val cfg: Map<Int, CfgNode>): AdvancedVisi
         if (cfgNode != null) {
             val jumpCfgNode = visitedLabels[p1]
             if (jumpCfgNode != null) {
+                // Label is declared before the current offset, link it now
                 addLink(cfgNode, jumpCfgNode, cfgLinkType)
             }
             else if (p1 != null) {
+                // Label is declared after the current offset, save the link info for further binding
                 var linkAtLabel = linksAtLabels[p1]
                 if (linkAtLabel == null) {
                     linkAtLabel = mutableListOf()

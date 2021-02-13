@@ -58,7 +58,7 @@ class ExcessNullCheckerTest {
         testFile("Misc")
     }
 
-    fun testFile(fileName: String) {
+    private fun testFile(fileName: String) {
         val fullJavaFilePath = Paths.get("src", "test", "resources", "$fileName.java").toString()
         val file = File(fullJavaFilePath)
         val expectedMessages = mutableListOf<Message>()
@@ -77,7 +77,6 @@ class ExcessNullCheckerTest {
             currentLine++
         }
 
-        val outputDir = Paths.get("build", "test-results").toString()
         val testLogger = TestLogger(expectedMessages)
         Analyzer(testLogger).runOnJavaFile(File(fullJavaFilePath), false)
 
