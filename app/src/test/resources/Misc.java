@@ -8,6 +8,16 @@ public class Misc {
         }
     }
 
+    static void logicalAnd(Object a) {
+        if (a != null && a == null) { // Test: condition_is_always_false
+        }
+    }
+
+    static void logicalOr(Object a) {
+        if (a != null || a == null) { // Test: condition_is_always_true
+        }
+    }
+
     static void unknownCondition(int x) {
         Object a = x > 7 ? new Object() : null;
         if (a == null) { // No warning
