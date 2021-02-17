@@ -10,6 +10,10 @@ class CfgNode(val begin: Int) {
         return links.filter { link -> link.end == this }
     }
 
+    fun getChildLinks(): List<CfgLink> {
+        return links.filter { link -> link.begin == this }
+    }
+
     override fun toString(): String {
         return if (begin != CfgReturnNodeIndex) "$begin-$end" else "return"
     }

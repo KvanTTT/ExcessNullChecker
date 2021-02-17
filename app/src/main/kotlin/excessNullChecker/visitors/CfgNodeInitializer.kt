@@ -180,6 +180,8 @@ class CfgNodeInitializerHelper(private val cfg: MutableMap<Int, CfgNode>): Advan
                 nextNodeLinkType = CfgLinkType.Epsilon
             }
         }
+
+        optimizeCfg()
     }
 
     private fun initializeCfgNode(incOffset: Boolean = true) {
@@ -202,6 +204,29 @@ class CfgNodeInitializerHelper(private val cfg: MutableMap<Int, CfgNode>): Advan
 
         if (incOffset)
             incOffset()
+    }
+
+    private fun optimizeCfg() {
+        for (i in 0 until offset) {
+            val node = cfg[i]
+            if (node != null) {
+                val parentLinks = node.getParentLinks()
+                if (parentLinks.size == 1) {
+                    val parentLink = parentLinks[0]
+                    val parentNode = parentLink.begin
+                    val childLinks = parentNode.getChildLinks()
+                    if (childLinks.size == 1 && parentLink.type == CfgLinkType.Epsilon && parentNode.end == node.begin) {
+                        parentNode.end = node.end
+                        parentNode.links.remove(parentLink)
+                        for (childLink in node.getChildLinks()) {
+                            childLink.end.links.remove(childLink)
+                            addLink(parentNode, childLink.end, childLink.type)
+                        }
+                        cfg.remove(node.begin)
+                    }
+                }
+            }
+        }
     }
 
     private fun addLink(begin: CfgNode, end: CfgNode, linkType: CfgLinkType) {

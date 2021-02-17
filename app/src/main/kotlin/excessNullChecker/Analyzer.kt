@@ -65,7 +65,7 @@ class Analyzer(private val logger: Logger) {
             classReader.accept(methodAnalyzer, 0)
         }
         catch (ex: Exception) {
-            logger.error("Error during $classFile checking: ${ex.message}")
+            logger.error("Error during $classFile checking: ${ex.message ?: ex.toString()}")
         }
     }
 }
