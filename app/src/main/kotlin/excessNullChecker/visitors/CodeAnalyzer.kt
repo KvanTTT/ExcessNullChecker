@@ -8,11 +8,11 @@ class CodeAnalyzer(
     private val signature: Signature
 ) : AdvancedVisitor() {
     private var currentState: State
-    private val cfgNodes: Map<Int, CfgNode> = context.methodsCfg[signature.fullName] ?: throw Exception("Cfg not found for ${signature.fullName}")
+    private val cfgNodes: Map<Int, List<CfgNode>> = context.methodsCfg[signature.fullName] ?: throw Exception("Cfg not found for ${signature.fullName}")
     private val cfgNodeStates: MutableMap<CfgNode, State> = mutableMapOf()
 
     init {
-        currentState = State(cfgNodes[0])
+        currentState = State(cfgNodes[0]?.first())
         var offset = 0
         if (!signature.static) {
             // First data entry is always not null for instance methods
@@ -421,7 +421,8 @@ class CodeAnalyzer(
     }
 
     override fun visitLookupSwitchInsn(dflt: Label?, keys: IntArray?, labels: Array<out Label>?) {
-        throw Exception("Opcode LOOKUPSWITCH is not supported, TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/6")
+        checkState()
+        incOffset()
     }
 
     override fun visitTableSwitchInsn(min: Int, max: Int, dflt: Label?, vararg labels: Label?) {
@@ -441,83 +442,95 @@ class CodeAnalyzer(
     }
 
     private fun checkState() {
-        val cfgNode = currentState.cfgNode
+        var cfgNode = currentState.cfgNode
 
-        if (cfgNode != null && offset == cfgNode.end) {
+        if (cfgNode != null && offset == cfgNode.endOffset) {
             // Save state
             if (currentState.condition == null)
                 currentState.condition = EmptyCondition(currentLine)
             cfgNodeStates[cfgNode] = State(currentState, cfgNode, currentState.condition)
         }
 
-        val nextCfgNode = cfgNodes[offset]
-        if (nextCfgNode != null && offset > 0) {
-            // Restore state
-            var resultState: State? = null
+        val nextCfgNodes = cfgNodes[offset]
+        if (nextCfgNodes != null && offset > 0) {
+            for (index in nextCfgNodes.indices) {
+                val nextCfgNode = nextCfgNodes[index]
+                // Restore state
+                var resultState: State? = null
 
-            val parentLinks = nextCfgNode.getParentLinks()
-            for (link in parentLinks) {
-                val prevState = cfgNodeStates[link.begin]
-                if (prevState != null) {
-                    if (resultState == null) {
-                        resultState = State(prevState, nextCfgNode, null)
-                        currentState = resultState
-                    } else {
-                        resultState.merge(prevState)
+                val parentLinks = nextCfgNode.getParentLinks()
+                for (link in parentLinks) {
+                    val prevState = cfgNodeStates[link.beginNode]
+                    if (prevState != null) {
+                        if (resultState == null) {
+                            resultState = State(prevState, nextCfgNode, null)
+                            currentState = resultState
+                        } else {
+                            resultState.merge(prevState)
+                        }
                     }
                 }
-            }
 
-            if (resultState == null) {
-                throw Exception("resultState should be initialized")
-            }
-
-            // Set state of outer block after inner return statement
-            if (parentLinks.size == 1) {
-                // Check the following and similar:
-                // if (x == null) return;
-                // if (x != null) { // Test: condition_is_always_true
-                // }
-
-                val link = parentLinks[0]
-                val condition = cfgNodeStates[link.begin]?.condition
-                if (condition is NullCheckCondition && condition.isDefined()) {
-                    resultState.set(condition.name, DataEntry(condition.name,
-                        if (link.type == CfgLinkType.False) condition.dataEntryType.invert() else condition.dataEntryType))
+                if (resultState == null) {
+                    throw Exception("Incorrect CFG at line $currentLine because not leading node should have at least one parent")
                 }
-            }
-            else if (parentLinks.size == 2) {
-                // Check the following:
-                // if (a == null)
-                //     a = new Object();
-                // if (a == null) { // Test: condition_is_always_false
-                // }
 
-                val firstState = cfgNodeStates[parentLinks[0].begin]
-                val secondState = cfgNodeStates[parentLinks[1].begin]
-                val firstCondition = firstState?.condition
-                val secondCondition = secondState?.condition
-                var varCheckCondition: NullCheckCondition? = null
-                var varAssignState: State? = null
-                if (firstCondition is NullCheckCondition && firstCondition.isDefined() && secondCondition is EmptyCondition) {
-                    varCheckCondition = firstCondition
-                    varAssignState = secondState
-                } else if (secondCondition is NullCheckCondition && secondCondition.isDefined() && firstCondition is EmptyCondition) {
-                    varCheckCondition = secondCondition
-                    varAssignState = firstState
+                cfgNode = resultState.cfgNode
+                if (cfgNode != null) {
+                    // TODO: correct condition for labels
+                    cfgNodeStates[cfgNode] = State(resultState, cfgNode, AnotherCondition(currentLine))
                 }
-                if (varCheckCondition != null && varAssignState != null) {
-                    val dataEntry = varAssignState.get(varCheckCondition.name)
-                    if (dataEntry?.name == varCheckCondition.name) {
-                        var finalDataEntryType: DataEntryType = DataEntryType.Other
-                        if (dataEntry.type == DataEntryType.Null && varCheckCondition.dataEntryType == DataEntryType.Null) {
-                            finalDataEntryType = DataEntryType.Null
-                        } else if (dataEntry.type == DataEntryType.NotNull && varCheckCondition.dataEntryType == DataEntryType.NotNull) {
-                            finalDataEntryType = DataEntryType.NotNull
-                        }
 
-                        if (finalDataEntryType.isNullOrNotNull()) {
-                            resultState.set(dataEntry.name, DataEntry(dataEntry.name, finalDataEntryType))
+                // Set state of outer block after inner return statement
+                if (parentLinks.size == 1) {
+                    // Check the following and similar:
+                    // if (x == null) return;
+                    // if (x != null) { // Test: condition_is_always_true
+                    // }
+
+                    val link = parentLinks[0]
+                    val condition = cfgNodeStates[link.beginNode]?.condition
+                    if (condition is NullCheckCondition && condition.isDefined()) {
+                        resultState.set(
+                            condition.name, DataEntry(
+                                condition.name,
+                                if (link.type == CfgLinkType.False) condition.dataEntryType.invert() else condition.dataEntryType
+                            )
+                        )
+                    }
+                } else if (parentLinks.size == 2) {
+                    // Check the following:
+                    // if (a == null)
+                    //     a = new Object();
+                    // if (a == null) { // Test: condition_is_always_false
+                    // }
+
+                    val firstState = cfgNodeStates[parentLinks[0].beginNode]
+                    val secondState = cfgNodeStates[parentLinks[1].beginNode]
+                    val firstCondition = firstState?.condition
+                    val secondCondition = secondState?.condition
+                    var varCheckCondition: NullCheckCondition? = null
+                    var varAssignState: State? = null
+                    if (firstCondition is NullCheckCondition && firstCondition.isDefined() && secondCondition is EmptyCondition) {
+                        varCheckCondition = firstCondition
+                        varAssignState = secondState
+                    } else if (secondCondition is NullCheckCondition && secondCondition.isDefined() && firstCondition is EmptyCondition) {
+                        varCheckCondition = secondCondition
+                        varAssignState = firstState
+                    }
+                    if (varCheckCondition != null && varAssignState != null) {
+                        val dataEntry = varAssignState.get(varCheckCondition.name)
+                        if (dataEntry?.name == varCheckCondition.name) {
+                            var finalDataEntryType: DataEntryType = DataEntryType.Other
+                            if (dataEntry.type == DataEntryType.Null && varCheckCondition.dataEntryType == DataEntryType.Null) {
+                                finalDataEntryType = DataEntryType.Null
+                            } else if (dataEntry.type == DataEntryType.NotNull && varCheckCondition.dataEntryType == DataEntryType.NotNull) {
+                                finalDataEntryType = DataEntryType.NotNull
+                            }
+
+                            if (finalDataEntryType.isNullOrNotNull()) {
+                                resultState.set(dataEntry.name, DataEntry(dataEntry.name, finalDataEntryType))
+                            }
                         }
                     }
                 }

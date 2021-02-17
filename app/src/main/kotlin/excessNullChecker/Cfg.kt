@@ -2,20 +2,25 @@ package excessNullChecker
 
 const val CfgReturnNodeIndex = -1
 
-class CfgNode(val begin: Int) {
-    var end: Int? = null
+class CfgNode(val beginOffset: Int) {
+    var endOffset: Int? = null
+    var index: Int? = null
     val links: MutableList<CfgLink> = mutableListOf()
 
     fun getParentLinks(): List<CfgLink> {
-        return links.filter { link -> link.end == this }
+        return links.filter { link -> link.endNode == this }
     }
 
     fun getChildLinks(): List<CfgLink> {
-        return links.filter { link -> link.begin == this }
+        return links.filter { link -> link.beginNode == this }
     }
 
     override fun toString(): String {
-        return if (begin != CfgReturnNodeIndex) "$begin-$end" else "return"
+        if (beginOffset == CfgReturnNodeIndex)
+            return "return"
+
+        val suffix = if (index != null) "($index)" else ""
+        return "$beginOffset-$endOffset$suffix"
     }
 }
 
@@ -25,8 +30,8 @@ enum class CfgLinkType {
     Epsilon
 }
 
-class CfgLink(val begin: CfgNode, val end: CfgNode, val type: CfgLinkType) {
+class CfgLink(val beginNode: CfgNode, val endNode: CfgNode, val type: CfgLinkType) {
     override fun toString(): String {
-        return "$begin -> $end, $type"
+        return "$beginNode -> $endNode, $type"
     }
 }

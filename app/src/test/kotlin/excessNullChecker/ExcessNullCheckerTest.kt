@@ -54,6 +54,11 @@ class ExcessNullCheckerTest {
     }
 
     @Test
+    fun switchCase() {
+        testFile("SwitchCase")
+    }
+
+    @Test
     fun misc() {
         testFile("Misc")
     }
