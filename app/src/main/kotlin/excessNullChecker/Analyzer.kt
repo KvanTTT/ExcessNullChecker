@@ -46,12 +46,11 @@ class Analyzer(private val logger: Logger) {
             val declCollector = DeclCollector()
             classReader.accept(declCollector, 0)
 
-            // create and initialize cfg for every method
-            val cfgNodeCreator = CfgNodeCreator()
-            classReader.accept(cfgNodeCreator, 0)
-            classReader.accept(CfgNodeInitializer(cfgNodeCreator.methodsCfg), 0)
+            // Initialize cfg for every method
+            val cfgNodeInitializer = CfgNodeInitializer()
+            classReader.accept(cfgNodeInitializer, 0)
 
-            val context = Context(declCollector.fields, cfgNodeCreator.methodsCfg, bytes, logger)
+            val context = Context(declCollector.fields, cfgNodeInitializer.methodsCfg, bytes, logger)
 
             // Analyze static constructor
             val staticConstructorAnalyzer = MethodAnalyzer(context, BypassType.StaticConstructor)

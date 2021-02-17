@@ -1,6 +1,6 @@
 package excessNullChecker
 
-const val CfgReturnIndex = -1
+const val CfgReturnNodeIndex = -1
 
 class CfgNode(val begin: Int) {
     var end: Int? = null
@@ -11,7 +11,7 @@ class CfgNode(val begin: Int) {
     }
 
     override fun toString(): String {
-        return if (begin != CfgReturnIndex) "$begin-$end" else "return"
+        return if (begin != CfgReturnNodeIndex) "$begin-$end" else "return"
     }
 }
 

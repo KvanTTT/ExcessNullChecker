@@ -4,7 +4,7 @@ import excessNullChecker.visitors.FieldInfo
 
 class Context(
     val fields: Map<String, FieldInfo>,
-    val methodsCfg: MutableMap<String, MutableMap<Int, CfgNode>>,
+    val methodsCfg: Map<String, Map<Int, CfgNode>>,
     val bytes: ByteArray,
     val logger: Logger
 ) {
