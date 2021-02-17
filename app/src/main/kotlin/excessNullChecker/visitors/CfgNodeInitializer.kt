@@ -63,6 +63,15 @@ class CfgNodeInitializerHelper(private val cfg: MutableMap<Int, MutableList<CfgN
     }
 
     override fun visitLookupSwitchInsn(dflt: Label?, keys: IntArray?, labels: Array<out Label>?) {
+        visitSwitchCase(labels!!, dflt!!)
+    }
+
+    override fun visitTableSwitchInsn(min: Int, max: Int, dflt: Label?, vararg labels: Label?) {
+        val notNullLabels = labels.filterNotNull().toTypedArray()
+        visitSwitchCase(notNullLabels, dflt!!)
+    }
+
+    private fun visitSwitchCase(labels: Array<out Label>, dflt: Label) {
         initializeCfgNode(false)
 
         var cfgNode: CfgNode? = null
@@ -81,34 +90,28 @@ class CfgNodeInitializerHelper(private val cfg: MutableMap<Int, MutableList<CfgN
             cfg[offset] = nextCfgNodes
         }
 
-        if (labels != null) {
-            for (index in labels.indices) {
-                cfgNode = nextCfgNodes[index]
-                cfgNode.index = index
-                cfgNode.endOffset = offset
-                addFutureLink(labels[index], cfgNode, CfgLinkType.True)
+        for (index in labels.indices) {
+            cfgNode = nextCfgNodes[index]
+            cfgNode.index = index
+            cfgNode.endOffset = offset
+            addFutureLink(labels[index], cfgNode, CfgLinkType.True)
 
-                if (index < labels.size - 1) {
-                    nextCfgNode = CfgNode(offset)
-                    nextCfgNodes.add(nextCfgNode)
-                    addLink(cfgNode, nextCfgNode, CfgLinkType.False)
-                }
+            if (index < labels.size - 1) {
+                nextCfgNode = CfgNode(offset)
+                nextCfgNodes.add(nextCfgNode)
+                addLink(cfgNode, nextCfgNode, CfgLinkType.False)
             }
-
-            if (dflt != null && cfgNode != null) {
-                // Link with default label
-                addFutureLink(dflt, cfgNode, if (labels.isNotEmpty()) CfgLinkType.False else CfgLinkType.Epsilon)
-            }
-
-            currentCfgNode = null
-            nextNodeLinkType = CfgLinkType.Epsilon
         }
 
-        incOffset()
-    }
+        if (cfgNode != null) {
+            // Link with default label
+            addFutureLink(dflt, cfgNode, if (labels.isNotEmpty()) CfgLinkType.False else CfgLinkType.Epsilon)
+        }
 
-    override fun visitTableSwitchInsn(min: Int, max: Int, dflt: Label?, vararg labels: Label?) {
-        throwUnsupportedOpcode(Opcodes.TABLESWITCH)
+        currentCfgNode = null
+        nextNodeLinkType = CfgLinkType.Epsilon
+
+        incOffset()
     }
 
     override fun visitTryCatchBlock(start: Label?, end: Label?, handler: Label?, type: String?) {

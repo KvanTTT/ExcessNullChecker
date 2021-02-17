@@ -426,7 +426,8 @@ class CodeAnalyzer(
     }
 
     override fun visitTableSwitchInsn(min: Int, max: Int, dflt: Label?, vararg labels: Label?) {
-        throw Exception("Opcode TABLESWITCH is not supported, TODO: https://github.com/KvanTTT/ExcessNullChecker/issues/6")
+        checkState()
+        incOffset()
     }
 
     override fun visitTryCatchBlock(start: Label?, end: Label?, handler: Label?, type: String?) {
@@ -442,7 +443,7 @@ class CodeAnalyzer(
     }
 
     private fun checkState() {
-        var cfgNode = currentState.cfgNode
+        val cfgNode = currentState.cfgNode
 
         if (cfgNode != null && offset == cfgNode.endOffset) {
             // Save state
@@ -475,11 +476,8 @@ class CodeAnalyzer(
                     throw Exception("Incorrect CFG at line $currentLine because not leading node should have at least one parent")
                 }
 
-                cfgNode = resultState.cfgNode
-                if (cfgNode != null) {
-                    // TODO: correct condition for labels
-                    cfgNodeStates[cfgNode] = State(resultState, cfgNode, AnotherCondition(currentLine))
-                }
+                // TODO: correct condition for labels
+                cfgNodeStates[nextCfgNode] = State(resultState, nextCfgNode, AnotherCondition(currentLine))
 
                 // Set state of outer block after inner return statement
                 if (parentLinks.size == 1) {
