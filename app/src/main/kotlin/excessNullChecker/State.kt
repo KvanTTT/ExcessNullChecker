@@ -97,4 +97,8 @@ class State {
             }
         }
     }
+
+    override fun toString(): String {
+        return "$_cfgNode"
+    }
 }
